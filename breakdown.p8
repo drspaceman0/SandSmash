@@ -27,19 +27,42 @@ cool_colors = { 8, 9, 10, 11, 12, 13, 14 }
 cool_colors_index = 0
 
 printh("START")
-function change_state()
-    cls()
-    if state == game_states.splash then
-        state = game_states.game
-        printh("NEW STATE: game")
-    elseif state == game_states.game then
-        state = game_states.gameover
-        player.y = 400
-        printh("NEW STATE: gameover")
-    elseif state == game_states.gameover then
+score = 0
+function change_state(new_state)
+    if new_state == game_states.splash then
         state = game_states.splash
-        printh("NEW STATE: splash")
+        init_spash()
+    elseif new_state == game_states.game then
+        state = game_states.game
+        init_game()
+    elseif new_state == game_states.gameover then
+        state = game_states.gameover
+        init_gameover()
     end
+end
+
+function init_spash()
+    printh("NEW STATE: splash")
+end
+
+time_at_init_game = 0
+function init_game()
+    printh("NEW STATE: game")
+    init_bitmap()
+    init_player()
+    effects = {}
+    balls = {}
+    pickups = {}
+    score = 0
+    total_balls = 0
+    new_big_ball()
+    time_at_init_game = t()
+    -- test_ball_bounce()
+    -- confetti()
+end
+
+function restart()
+    change_state(game_states.game)
 end
 
 --particles
@@ -63,6 +86,7 @@ trail_sfx = 0
 explode_sfx = 1
 fire_sfx = 2
 
+max_effects = 680
 function add_fx(x, y, die, dx, dy, grav, grow, shrink, r, c_table)
     local fx = {
         x = x,
@@ -208,19 +232,13 @@ function update_player(o)
     -- left
     player.dx = 0
     if btn(0) then
-        player.x -= o.speed
+        player.x = max(player.x - o.speed, MIN_X)
         player.dx = -o.speed
-        if player.x < MIN_X then
-            player.x = MIN_X
-        end
     end
     -- right
     if btn(1) then
-        player.x += o.speed
+        player.x = min(player.x + o.speed, MAX_X - player.w + 1)
         player.dx = o.speed
-        if player.x + player.w > MAX_X then
-            player.x = MAX_X - player.w
-        end
     end
     o.center_x = o.x + flr(o.w / 2)
     if t() % player_color_change_interval == 0 then
@@ -234,8 +252,13 @@ end
 
 player_color_change_interval = 5
 player_y = MAX_Y - 3
-player = Entity.create { x = MIN_X + 32, y = player_y, h = 1, w = 12, c = 8, update = update_player, draw = draw_player, speed = 2 }
-player.collision = false
+player_w_min = 12
+player = {}
+
+function init_player()
+    player = Entity.create { x = MIN_X + 32, y = player_y, h = 1, w = player_w_min, c = 8, update = update_player, draw = draw_player, speed = 2 }
+    player.collision = false
+end
 
 -- Pico8 game funtions
 
@@ -246,6 +269,7 @@ function _init()
     init_game()
 end
 
+-- function _update()
 function _update()
     if state == game_states.splash then
         update_splash()
@@ -294,16 +318,28 @@ function draw_game()
 
     draw_fx()
     if activate_ma_lazah then draw_lazer() end
-    draw_xp_bar()
+    doshake()
+    -- draw_xp_bar()
+
+    early_start()
+end
+
+function early_start()
+    bm_new_layer_frequency = 2
+    start_ceiling_drop = true
 end
 
 -- GAME OVER
 
 function update_gameover()
+    if btnp(4) or btnp(5) then
+        restart()
+    end
+
     -- player:update() --- dont update player
     -- update_objects()
 
-    if start_ceiling_drop then update_bitmap() end
+    update_bitmap()
     if activate_ma_lazah then update_lazer() end
 
     update_object_table(balls)
@@ -312,10 +348,19 @@ function update_gameover()
     update_fx()
 end
 
+function init_gameover()
+    printh("NEW STATE: gameover")
+    player.y = 400
+    score = total_balls
+end
+
 function draw_gameover()
     draw_game()
-    local text = "game over"
-    write(text, text_x_pos(text), 28, 7)
+    score = 17238
+    -- write(text, text_x_pos(text), 28, 7)
+    write("game over", text_x_pos("game over"), 20, 7)
+    local score_text = "★ " .. score
+    write(score_text, text_x_pos(score_text) - 2, 30, 7)
 end
 
 -- Utils
@@ -379,7 +424,6 @@ function init_bitmap()
             bm[i][j] = 0
         end
     end
-
     for i = 0, 4 do
         bitmap_brick { x = 10 + 8 * i, y = 10, w = 6, h = 3, c1 = 13, c2 = 12 }
     end
@@ -389,10 +433,6 @@ function init_bitmap()
     for i = 0, 4 do
         bitmap_brick { x = 10 + 8 * i, y = 20, w = 6, h = 3, c1 = 8, c2 = 14 }
     end
-
-    -- for i = 1, 14 do
-    --     add_layer {}
-    -- end
 end
 
 function bitmap_brick(arg)
@@ -414,16 +454,25 @@ end
 bm_layer_count = 0
 bm_new_layer_color = 11
 bm_new_layer_frequency = 20
+bm_new_layer_frequency_decrease = 0.5
 bm_new_layer_frequency_min = 4
 bm_new_layer_timer = bm_new_layer_frequency
 bm_new_layer_frequency_per_layers = #cool_colors
 
+start_ceiling_drop = false
+start_ceiling_drop_timer = 120
+
 function update_bitmap()
+    if not start_ceiling_drop then
+        start_ceiling_drop_timer -= 1
+        if start_ceiling_drop_timer <= 0 then start_ceiling_drop = true end
+        return
+    end
     bm_new_layer_timer -= 1
     if bm_new_layer_timer <= 0 then
         add_layer {}
         if bm_layer_count % bm_new_layer_frequency_per_layers == 0 then
-            bm_new_layer_frequency = max(bm_new_layer_frequency - 1, bm_new_layer_frequency_min)
+            bm_new_layer_frequency = max(bm_new_layer_frequency - bm_new_layer_frequency_decrease, bm_new_layer_frequency_min)
         end
         bm_new_layer_timer = bm_new_layer_frequency
     end
@@ -431,7 +480,7 @@ function update_bitmap()
     for i = MIN_X, MAX_X do
         if bm[i][MAX_Y] != 0 then
             printh("game over!!")
-            if state == game_states.game then change_state() end
+            if state == game_states.game then change_state(game_states.gameover) end
             return
         end
     end
@@ -457,34 +506,6 @@ function add_layer(arg)
         end
     end
 
-    -- edges. Fill these with sand much less
-    -- for i = MIN_X, MIN_X + edge_width - 1 do
-    --     local get_longer = rnd(1) > edge_randomness
-    --     if rnd(1) > layer_randomness then
-    --         local prev_color = arg.color or bm_new_layer_color
-    --         for j = MIN_Y, MAX_Y + 1 do
-    --             if get_longer or bm[i][j] != 0 then
-    --                 local c = bm[i][j]
-    --                 bm[i][j] = prev_color
-    --                 prev_color = c
-    --             end
-    --         end
-    --     end
-    -- end
-    -- for i = MAX_X - edge_width + 1, MAX_X do
-    --     local get_longer = rnd(1) > edge_randomness
-    --     if rnd(1) > layer_randomness then
-    --         local prev_color = arg.color or bm_new_layer_color
-    --         for j = MIN_Y, MAX_Y + 1 do
-    --             if get_longer or bm[i][j] != 0 then
-    --                 local c = bm[i][j]
-    --                 bm[i][j] = prev_color
-    --                 prev_color = c
-    --             end
-    --         end
-    --     end
-    -- end
-
     bm_layer_count += 1
 end
 
@@ -496,16 +517,10 @@ function draw_bitmap()
     end
 end
 
-function init_game()
-    init_bitmap()
-
-    -- new_big_ball()
-
+function test_ball_bounce()
     for x = 0, player.w - 1 do
         new_ball { x = player.x + x, y = player.y - 20, w = 1, h = 1, dx = 0, dy = 1, c = get_rand_cool_color() }
     end
-
-    -- confetti()
 end
 
 function confetti()
@@ -517,14 +532,14 @@ function confetti()
 end
 
 total_xp = 0
-xp_before_pickup = 100
+xp_before_pickup = 200
 function absorb_xp()
     total_xp += 1
     xp_ratio = total_xp / xp_required
     if total_xp % xp_before_pickup == 0 then
         new_pickup {}
     end
-    printh("XP: " .. total_xp)
+    -- printh("XP: " .. total_xp)
 end
 
 big_ball_pierce_limit = 4
@@ -558,7 +573,6 @@ function update_big_ball(b)
                 bm[x][y] = 0
                 b.n_pierced -= 1
                 if b.n_pierced <= 0 then
-                    start_ceiling_drop = true
                     b.dy *= -1
                     b.n_pierced = big_ball_pierce_limit
                 end
@@ -611,20 +625,9 @@ function update_ball(b)
             absorb_xp()
         end
         -- b.c = player.c
-        -- x
+
         -- b.dx = player.dx / 2 + (b.x - player.center_x) / 4.5
-
-        -- here
-        if player.dx != 0 then
-            b.dx = player.dx / 2
-        else
-            if b.x + 2 < player.center_x then b.dx = -1 end
-            if b.x - 2 > player.center_x then b.dx = 1 end
-        end
-
-        -- y
-        b.dy *= -1
-        b.y = player.y - 1
+        calculate_player_reflect(b)
     end
 
     -- bitmap collision
@@ -632,11 +635,32 @@ function update_ball(b)
     if bm[x][y] != 0 then
         b.dy = 1
         new_ball { x = x, y = y, w = 1, h = 1, dx = 0, dy = 1, c = bm[x][y] }
+
         bm[x][y] = 0
     end
 
     b.time -= 1
     return b.time > 0
+end
+
+reflect_magnitude = 100
+player_speed_dampining = 2
+function calculate_player_reflect(b)
+    -- x
+
+    local b_offset = b.x - player.center_x
+    b.dx = b_offset / reflect_magnitude + player.dx / player_speed_dampining
+
+    -- if player.dx != 0 then
+    --     b.dx = player.dx / 2
+    -- else
+    --     if b.x + 2 < player.center_x then b.dx = -1 end
+    --     if b.x - 2 > player.center_x then b.dx = 1 end
+    -- end
+
+    -- y
+    b.dy *= -1
+    b.y = player.y - 1
 end
 
 function new_big_ball()
@@ -650,7 +674,11 @@ end
 default_ball_time = 1200
 default_ball_speed = 1
 balls = {}
+max_balls = 1280
+total_balls = 0
 function new_ball(arg)
+    total_balls += 1
+    if #balls >= 1280 then return end
     -- x, y, w, h, dx, dy, c
     local b = Entity.create {
         x = arg.x, y = arg.y, h = arg.h, w = arg.w,
@@ -659,26 +687,28 @@ function new_ball(arg)
     }
 
     add(balls, b)
-    printh("# of balls: " .. #balls)
+    if #balls % 100 == 0 then printh("#balls: " .. #balls) end
+    -- printh("# of balls: " .. #balls)
     return b
 end
 
 pickups = {}
+lazer_spr = 2
+lazer_c = 12
 function new_pickup(arg)
     local w = 6
     local h = 5
     local x = MIN_X + 4 + flr(rnd(MAX_X - w - 4))
     local o = Entity.create {
         x = x, y = 0, h = h, w = w,
-        dx = 0, dy = 1, time = 9999, c = arg.c, update = update_pickup,
+        dx = 0, dy = 1, time = 9999, c = lazer_c, update = update_pickup,
         draw = draw_pickup, speed = 2
     }
-    o.spr = 2
+    o.spr = lazer_spr
     add(pickups, o)
 end
 
 function update_pickup(o)
-    printh(o.x .. " - " .. o.y)
     o.x += o.dx
     o.y += o.dy
     if o:collide(player) then
@@ -703,7 +733,7 @@ lazer_border_color = 6
 lazer_color = 7
 lazer_x = 0
 
-lazer_duration = 40
+lazer_duration = 30
 lazer_timer = lazer_duration
 function activate_lazer()
     activate_ma_lazah = true
@@ -718,8 +748,18 @@ function update_lazer()
     for i = max(MIN_X, lazer_x - 1), min(MAX_X, lazer_x + lazer_w + 1) do
         for j = MIN_Y, MAX_Y do
             if bm[i][j] != 0 then
+                if #effects < max_effects then
+                    explode(i, j, explode_size, explode_colors, bm[i][j])
+                    -- if rand_sign() == 1 then
+                    --     explode(i, j, explode_size, { bm[i][j] }, bm[i][j])
+                    -- else
+                    --     explode(i, j, explode_size, explode_colors, bm[i][j])
+                    -- end
+
+                    --
+                end
                 bm[i][j] = 0
-                explode(i, j, explode_size, explode_colors, bm[i][j])
+                shake = min(shake + 0.2, max_shake)
             end
         end
     end
@@ -727,14 +767,6 @@ function update_lazer()
     if lazer_timer <= 0 then
         activate_ma_lazah = false
     end
-
-    -- if t() * 10 % 4 == 0 then
-    --     for j = MIN_Y, player.y - 1, 4 do
-    --         local r = flr(5 + rnd(2)) + 1
-    --         explode(player.center_x, j, explode_size, { 5, 6, 7 }, 7)
-    --         -- function explode(x, y, r, c_table, num)
-    --     end
-    -- end
 end
 
 function draw_lazer()
@@ -743,24 +775,25 @@ function draw_lazer()
     -- particles
 end
 
-start_ceiling_drop = false
 activate_ma_lazah = false
 function update_game()
     player:update()
-    if btnp(4) then
-        add_layer {}
+    if btn(4) then
+        -- shake += 1
+        -- new_pickup {}
+        -- add_layer {}
+        test_ball_bounce()
     end
     if btnp(5) then
-        printh("Button Press 5")
         -- activate_lazer()
-        new_pickup {}
+        -- new_pickup {}
+        increase_current_ball_speed()
     end
-    if start_ceiling_drop then update_bitmap() end
+    update_bitmap()
     if activate_ma_lazah then update_lazer() end
     if t() % 2 == 0 then
         -- do more expensive calculations in here?
-        printh(#balls)
-        if #balls == 0 and state == game_states.game then
+        if #balls == 0 and state == game_states.game and t() - time_at_init_game <= 10 then
             new_big_ball()
         end
     end
@@ -769,6 +802,16 @@ function update_game()
     update_object_table(pickups)
 
     update_fx()
+end
+
+ball_speed_increase = 1.2
+function increase_current_ball_speed()
+    local i, j = 1, 1
+    while balls[i] do
+        balls[i].dx *= ball_speed_increase
+        balls[i].dy *= ball_speed_increase
+        i += 1
+    end
 end
 
 function update_objects()
@@ -791,13 +834,29 @@ function rand_sign()
     return rnd() < 0.5 and 1 or -1
 end
 
+shake = 0
+shake_amount = 1
+max_shake = 3
+function doshake()
+    local shakex = shake_amount - rnd(shake_amount * 2)
+    local shakey = shake_amount - rnd(shake_amount * 2)
+
+    shakex *= shake
+    shakey *= shake
+
+    camera(shakex, shakey)
+
+    shake = shake * 0.75
+    if (shake < 0.05) shake = 0
+end
+
 __gfx__
-0ee00000600000000777700007777000000000000000000000000000000000000000000000000000000000000000000066000000600000066000000600000000
-e77e00006600000077c7770077c77700000000000000000000000000000000000000000000000000000000000000000060660000600000066000000600000000
-e77e00006760000077cc770077c77700000000000000000000000000000000000000000000000000000000000000000060006600600000066000000600000000
-0ee0000067760000c7777c0077cc7700000000000000000000000000000000000000000000000000000000000000000060000066600000066000000600000000
-00000000677760000cccc000c7777c00000000000000000000000000000000000000000000000000000000000000000060000006600000066000000600000000
-0000000067776000000000000cccc000000000000000000000000000000000000000000000000000000000000000000060000006600000066000000600000000
+0ee0000060000000077770000cccccc0000000000000000000000000000000000000000000000000000000000000000066000000600000066000000600000000
+e77e00006600000077c77700cccccccc000000000000000000000000000000000000000000000000000000000000000060660000600000066000000600000000
+e77e00006760000077cc7700cccccccc000000000000000000000000000000000000000000000000000000000000000060006600600000066000000600000000
+0ee0000067760000c7777c00cccccccc000000000000000000000000000000000000000000000000000000000000000060000066600000066000000600000000
+00000000677760000cccc000cccccccc000000000000000000000000000000000000000000000000000000000000000060000006600000066000000600000000
+0000000067776000000000000cccccc0000000000000000000000000000000000000000000000000000000000000000060000006600000066000000600000000
 00000000677760000000000000000000000000000000000000000000000000000000000000000000000000000000000060000006600000066000000600000000
 00000000677760000000000000000000000000000000000000000000000000000000000000000000000000000000000060000006600000066666666600000000
 00000000677760000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
