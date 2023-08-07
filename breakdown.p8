@@ -55,6 +55,7 @@ function init_game()
     pickups = {}
     score = 0
     total_balls = 0
+    total_xp = 0
     new_big_ball()
     time_at_init_game = t()
     -- test_ball_bounce()
@@ -254,9 +255,11 @@ player_color_change_interval = 5
 player_y = MAX_Y - 3
 player_w_min = 12
 player = {}
+default_player_speed = 2
+player_speed = default_player_speed
 
 function init_player()
-    player = Entity.create { x = MIN_X + 32, y = player_y, h = 1, w = player_w_min, c = 8, update = update_player, draw = draw_player, speed = 2 }
+    player = Entity.create { x = MIN_X + 32, y = player_y, h = 1, w = player_w_min, c = 8, update = update_player, draw = draw_player, speed = player_speed }
     player.collision = false
 end
 
@@ -321,7 +324,9 @@ function draw_game()
     doshake()
     -- draw_xp_bar()
 
-    early_start()
+    draw_levelup()
+
+    -- early_start()
 end
 
 function early_start()
@@ -356,7 +361,6 @@ end
 
 function draw_gameover()
     draw_game()
-    score = 17238
     -- write(text, text_x_pos(text), 28, 7)
     write("game over", text_x_pos("game over"), 20, 7)
     local score_text = "★ " .. score
@@ -673,6 +677,7 @@ end
 
 default_ball_time = 1200
 default_ball_speed = 1
+ball_speed = default_ball_speed
 balls = {}
 max_balls = 1280
 total_balls = 0
@@ -683,7 +688,7 @@ function new_ball(arg)
     local b = Entity.create {
         x = arg.x, y = arg.y, h = arg.h, w = arg.w,
         dx = arg.dx, dy = arg.dy, time = default_ball_time, c = arg.c, update = arg.update or update_ball,
-        draw = arg.draw or draw_ball, speed = default_ball_speed
+        draw = arg.draw or draw_ball, speed = ball_speed
     }
 
     add(balls, b)
@@ -775,35 +780,6 @@ function draw_lazer()
     -- particles
 end
 
-activate_ma_lazah = false
-function update_game()
-    player:update()
-    if btn(4) then
-        -- shake += 1
-        -- new_pickup {}
-        -- add_layer {}
-        test_ball_bounce()
-    end
-    if btnp(5) then
-        -- activate_lazer()
-        -- new_pickup {}
-        increase_current_ball_speed()
-    end
-    update_bitmap()
-    if activate_ma_lazah then update_lazer() end
-    if t() % 2 == 0 then
-        -- do more expensive calculations in here?
-        if #balls == 0 and state == game_states.game and t() - time_at_init_game <= 10 then
-            new_big_ball()
-        end
-    end
-
-    update_object_table(balls)
-    update_object_table(pickups)
-
-    update_fx()
-end
-
 ball_speed_increase = 1.2
 function increase_current_ball_speed()
     local i, j = 1, 1
@@ -848,6 +824,169 @@ function doshake()
 
     shake = shake * 0.75
     if (shake < 0.05) shake = 0
+end
+
+show_levelup = false
+started_levelup = false
+levelup_input_stopped = false
+choice_1 = nil
+choice_2 = nil
+lazer_choice = "lazer"
+width_choice = "+1 width"
+speed_choice = "+1 speed"
+levelup_choices = { lazer_choice, width_choice, speed_choice }
+
+function get_rand_choice(not_choice)
+    printh("get rand choice")
+    printh(not_choice)
+    printh("---------------")
+    local c = levelup_choices[flr(rnd(#levelup_choices)) + 1]
+    printh(c)
+    printh(not_choice)
+    while c == not_choice do
+        c = levelup_choices[flr(rnd(#levelup_choices)) + 1]
+    end
+    return c
+end
+
+function reset_levelup()
+    show_levelup = false
+    started_levelup = false
+    choice_1 = nil
+    choice_2 = nil
+end
+
+function reset_levelup_choices()
+    ball_speed = default_ball_speed
+    player_speed = default_player_speed
+end
+
+function apply_levelup(choice)
+    if choice == lazer_choice then
+        activate_lazer()
+    elseif choice == width_choice then
+        player.w += 2
+    elseif choice == speed_choice then
+        ball_speed += 0.25
+        -- update current balls
+        local i, j = 1, 1
+        while balls[i] do
+            balls[i].speed = ball_speed
+            i += 1
+        end
+    else
+        printh("idk what choice that was")
+        printh(choice)
+    end
+end
+
+function update_levelup()
+    if not started_levelup then
+        started_levelup = true
+        levelup_input_stopped = false
+        levelup_timer = levelup_timer_wait
+        levelup_step = levelup_steps.start
+        levelup_effects_started = false
+        choice_1 = get_rand_choice(nil)
+        choice_2 = get_rand_choice(choice_1)
+        printh(choice_1)
+        printh(choice_2)
+    end
+
+    if levelup_step == levelup_steps.start then
+        return
+    elseif levelup_step == levelup_steps.decision then
+        if not levelup_input_stopped then
+            if btn(0) or btn(1) then return end
+            levelup_input_stopped = true
+        end
+        if btnp(0) then
+            apply_levelup(choice_1)
+            reset_levelup()
+        end
+        if btnp(1) then
+            apply_levelup(choice_2)
+            reset_levelup()
+        end
+    end
+end
+
+levelup_timer_wait = MAX_Y / 2
+levelup_timer = levelup_timer_wait
+levelup_h = 8
+levelup_y = flr(MAX_Y / 2)
+levelup_steps = { start = 1, decision = 2, finish = 3 }
+levelup_step = levelup_steps.start
+
+levelup_effects_started = false
+
+function draw_levelup()
+    if not show_levelup or not started_levelup then return end
+    if levelup_step == levelup_steps.start then
+        if not levelup_effects_started then
+            levelup_effects_started = true
+            for i = 0, MAX_X, 4 do
+                explode(i, MAX_Y / 2, explode_size, { 6, 7 }, 14)
+            end
+        end
+
+        local n = levelup_timer_wait - levelup_timer
+
+        rectfill(MIN_X, MIN_Y + n, MAX_X, MAX_Y - n, 7)
+        rectfill(MIN_X, levelup_y - levelup_h / 2, MAX_X, levelup_y + levelup_h / 2, 7)
+        printh("n: " .. n .. "  t: " .. levelup_timer)
+
+        levelup_timer -= 4
+        if levelup_timer < 0 then
+            levelup_step = levelup_steps.decision
+            levelup_timer = 0
+        end
+    elseif levelup_step == levelup_steps.decision then
+        -- draw left choice
+        rectfill(MIN_X, levelup_y - levelup_h / 2 - 8, MAX_X, levelup_y + levelup_h / 2 - 8, 7)
+        print("⬅️ " .. choice_1, 2, levelup_y - 10, 0)
+        -- draw right choice
+        rectfill(MIN_X, levelup_y - levelup_h / 2 + 8, MAX_X, levelup_y + levelup_h / 2 + 8, 7)
+        print("➡️ " .. choice_2, 2, levelup_y + 6, 0)
+    elseif levelup_step == levelup_steps.finish then
+    else
+        printh("weird levelup step???")
+    end
+end
+
+activate_ma_lazah = false
+function update_game()
+    if show_levelup then
+        update_fx()
+        update_levelup()
+        return
+    end
+    player:update()
+    if btn(4) then
+        -- shake += 1
+        -- new_pickup {}
+        -- add_layer {}
+        -- test_ball_bounce()
+        show_levelup = true
+    end
+    if btnp(5) then
+        -- activate_lazer()
+        -- new_pickup {}
+        increase_current_ball_speed()
+    end
+    update_bitmap()
+    if activate_ma_lazah then update_lazer() end
+    if t() % 2 == 0 then
+        -- do more expensive calculations in here?
+        if #balls == 0 and state == game_states.game and t() - time_at_init_game <= 10 then
+            new_big_ball()
+        end
+    end
+
+    update_object_table(balls)
+    update_object_table(pickups)
+
+    update_fx()
 end
 
 __gfx__
