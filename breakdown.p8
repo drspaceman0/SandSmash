@@ -325,6 +325,7 @@ function draw_game()
     -- draw_xp_bar()
 
     draw_levelup()
+    draw_sticky()
 
     -- early_start()
 end
@@ -628,19 +629,42 @@ function update_ball(b)
         if b.c == player.c then
             absorb_xp()
         end
+
         -- b.c = player.c
 
         -- b.dx = player.dx / 2 + (b.x - player.center_x) / 4.5
+
         calculate_player_reflect(b)
     end
+    if sticky_mode_activated then
+        local rounded_x = flr(b.x)
+        local rounded_y = flr(b.y)
 
-    -- bitmap collision
-    local x, y = flr(b.x), flr(b.y)
-    if bm[x][y] != 0 then
-        b.dy = 1
-        new_ball { x = x, y = y, w = 1, h = 1, dx = 0, dy = 1, c = bm[x][y] }
+        if rounded_x + 1 > player.x and rounded_x < player.x + player.w + 1 then
+            local relative_x = rounded_x - flr(player.x)
+            local next_x = flr(relative_x + b.dx)
+            local next_y = flr(b.y + b.dy)
+            printh(quote({ rounded_x, rounded_y, relative_x, next_x, next_y }))
+            if sticky_bm[relative_x] and sticky_bm[relative_x][rounded_y] and sticky_bm[relative_x][rounded_y] == 0 and sticky_bm[next_x] and sticky_bm[next_x][next_y] and sticky_bm[next_x][next_y] > 0 then
+                printh("regular stick")
+                add_sticky(relative_x, rounded_y, b.c)
+                return false
+            end
+            if sticky_bm[relative_x] and next_y >= player.y then
+                printh("next to bar")
+                add_sticky(relative_x, rounded_y, b.c)
+                return false
+            end
+        end
+    else
+        -- bitmap collision
+        local x, y = flr(b.x), flr(b.y)
+        if bm[x][y] != 0 then
+            b.dy = 1
+            new_ball { x = x, y = y, w = 1, h = 1, dx = 0, dy = 1, c = bm[x][y] }
 
-        bm[x][y] = 0
+            bm[x][y] = 0
+        end
     end
 
     b.time -= 1
@@ -956,23 +980,26 @@ end
 
 activate_ma_lazah = false
 function update_game()
-    if show_levelup then
-        update_fx()
-        update_levelup()
-        return
-    end
+    -- if show_levelup then
+    --     update_fx()
+    --     update_levelup()
+    --     return
+    -- end
     player:update()
     if btn(4) then
         -- shake += 1
         -- new_pickup {}
         -- add_layer {}
         -- test_ball_bounce()
-        show_levelup = true
+        -- show_levelup = true
+        activate_sticky()
     end
     if btnp(5) then
         -- activate_lazer()
         -- new_pickup {}
-        increase_current_ball_speed()
+        -- increase_current_ball_speed()
+        -- test_ball_bounce()
+        shoot_sticky()
     end
     update_bitmap()
     if activate_ma_lazah then update_lazer() end
@@ -985,8 +1012,66 @@ function update_game()
 
     update_object_table(balls)
     update_object_table(pickups)
-
+    update_sticky()
     update_fx()
+end
+
+sticky_mode_activated = false
+sticky_bm = {}
+function activate_sticky()
+    if sticky_mode_activated then return end
+    printh("sticky mode activate")
+    sticky_mode_activated = true
+    printh("sticky table: i=0," .. tostr(player.w - 1) .. " , j=" .. tostr(MIN_Y) .. "," .. player.y)
+    for i = 0, player.w - 1 do
+        sticky_bm[i] = {}
+        for j = MIN_Y, player.y do
+            sticky_bm[i][j] = 0
+        end
+    end
+end
+
+function add_sticky(x, y, c)
+    printh("sticky table: i=0," .. tostr(player.w - 1) .. " , j=" .. tostr(MIN_Y) .. "," .. player.y)
+    printh("add: " .. x .. ", " .. y)
+    sticky_bm[x][y] = c
+end
+
+function update_sticky()
+end
+
+function draw_sticky()
+    if not sticky_mode_activated then return end
+    for i = 0, player.w - 1 do
+        for j = MIN_Y, player.y do
+            if sticky_bm[i][j] != 0 then
+                pset(player.x + i, j, sticky_bm[i][j])
+            end
+        end
+    end
+end
+
+function shoot_sticky()
+    for i = 0, player.w - 1 do
+        for j = MIN_Y, player.y do
+            if sticky_bm[i][j] != 0 then
+                new_ball { x = player.x + i, y = j, w = 1, h = 1, dx = rand_dir() * 2, dy = -1 * 2, c = sticky_bm[i][j] }
+                sticky_bm[i][j] = 0
+            end
+        end
+    end
+    sticky_mode_activated = false
+end
+
+function rand_dir()
+    local r = rnd()
+    if r < 0.34 then
+        return -1
+    elseif r < 0.67 then
+        return 0
+    else
+        return 1
+    end
 end
 
 __gfx__
