@@ -475,20 +475,28 @@ function update_bitmap()
     end
     bm_new_layer_timer -= 1
     if bm_new_layer_timer <= 0 then
+        bm_new_layer_timer = bm_new_layer_frequency
+        -- if is_a_powerup_activated() then
+        --     return
+        -- end
         add_layer {}
         if bm_layer_count % bm_new_layer_frequency_per_layers == 0 then
             bm_new_layer_frequency = max(bm_new_layer_frequency - bm_new_layer_frequency_decrease, bm_new_layer_frequency_min)
         end
-        bm_new_layer_timer = bm_new_layer_frequency
-    end
-    -- check for game over
-    for i = MIN_X, MAX_X do
-        if bm[i][MAX_Y] != 0 then
+
+        if is_game_over() then
             printh("game over!!")
             if state == game_states.game then change_state(game_states.gameover) end
-            return
         end
     end
+    -- check for game over
+end
+
+function is_game_over()
+    for i = MIN_X, MAX_X do
+        if bm[i][MAX_Y] != 0 then return true end
+    end
+    return false
 end
 
 layer_randomness = 0.2
@@ -553,7 +561,7 @@ function update_big_ball(b)
     b.x += b.dx * b.speed
     b.y += b.dy * b.speed
     if b.x > MAX_X - b.w - 1 or b.x < MIN_X then
-        b.x = max(min(b.x, MAX_X), MIN_X)
+        b.x = max(min(b.x, MAX_X - b.w), MIN_X)
         b.dx *= -1
     end
     if b.y < MIN_Y then
@@ -585,8 +593,9 @@ function update_big_ball(b)
         end
     end
 
-    b.time -= 1
-    return b.time > 0
+    return true
+    -- b.time -= 1
+    -- return b.time > 0
 end
 
 function draw_big_ball(b)
@@ -613,8 +622,14 @@ function update_ball(b)
     -- printh(quote(b))
     b.x += b.dx * b.speed
     b.y += b.dy * b.speed
+
     if b.x > MAX_X or b.x < MIN_X then
-        b.x = max(min(b.x, MAX_X), MIN_X)
+        if b.x < MIN_X then
+            b.x *= -1
+        else
+            b.x = 2 * MAX_X - b.x
+        end
+        -- b.x = max(min(b.x, MAX_X), MIN_X)
         b.dx *= -1
     end
     if b.y < MIN_Y then
@@ -634,37 +649,21 @@ function update_ball(b)
 
         -- b.dx = player.dx / 2 + (b.x - player.center_x) / 4.5
 
+        if sticky_mode_activated then
+            add_sticky(flr(b.x) - player.x, b.c)
+            return false
+        end
+
         calculate_player_reflect(b)
     end
-    if sticky_mode_activated then
-        local rounded_x = flr(b.x)
-        local rounded_y = flr(b.y)
 
-        if rounded_x + 1 > player.x and rounded_x < player.x + player.w + 1 then
-            local relative_x = rounded_x - flr(player.x)
-            local next_x = flr(relative_x + b.dx)
-            local next_y = flr(b.y + b.dy)
-            printh(quote({ rounded_x, rounded_y, relative_x, next_x, next_y }))
-            if sticky_bm[relative_x] and sticky_bm[relative_x][rounded_y] and sticky_bm[relative_x][rounded_y] == 0 and sticky_bm[next_x] and sticky_bm[next_x][next_y] and sticky_bm[next_x][next_y] > 0 then
-                printh("regular stick")
-                add_sticky(relative_x, rounded_y, b.c)
-                return false
-            end
-            if sticky_bm[relative_x] and next_y >= player.y then
-                printh("next to bar")
-                add_sticky(relative_x, rounded_y, b.c)
-                return false
-            end
-        end
-    else
-        -- bitmap collision
-        local x, y = flr(b.x), flr(b.y)
-        if bm[x][y] != 0 then
-            b.dy = 1
-            new_ball { x = x, y = y, w = 1, h = 1, dx = 0, dy = 1, c = bm[x][y] }
+    -- bitmap collision
+    local x, y = flr(b.x), flr(b.y)
+    if bm[x][y] != 0 then
+        b.dy = 1
+        new_ball { x = x, y = y, w = 1, h = 1, dx = 0, dy = 1, c = bm[x][y] }
 
-            bm[x][y] = 0
-        end
+        bm[x][y] = 0
     end
 
     b.time -= 1
@@ -693,7 +692,7 @@ end
 
 function new_big_ball()
     local b = new_ball {
-        x = 10, y = 30, w = 4, h = 4, dx = 1, dy = 1, c = 7,
+        x = 52, y = 40, w = 4, h = 4, dx = -1, dy = 1, c = 7,
         update = update_big_ball, draw = draw_big_ball
     }
     b.n_pierced = big_ball_pierce_limit
@@ -723,7 +722,10 @@ end
 
 pickups = {}
 lazer_spr = 2
+sticky_spr = 18
 lazer_c = 12
+pickup_types = { "lazer", "sticky" }
+last_pickup = -1
 function new_pickup(arg)
     local w = 6
     local h = 5
@@ -733,7 +735,20 @@ function new_pickup(arg)
         dx = 0, dy = 1, time = 9999, c = lazer_c, update = update_pickup,
         draw = draw_pickup, speed = 2
     }
-    o.spr = lazer_spr
+    local rand_type = pickup_types[flr(rnd(#pickup_types)) + 1]
+    while rand_type == last_pickup do
+        rand_type = pickup_types[flr(rnd(#pickup_types)) + 1]
+    end
+    last_pickup = rand_type
+    o.pickup_type = rand_type
+    if rand_type == "lazer" then
+        o.spr = lazer_spr
+    elseif rand_type == "sticky" then
+        o.spr = sticky_spr
+    else
+        printh("i dont know what pickup type that was")
+    end
+
     add(pickups, o)
 end
 
@@ -741,7 +756,13 @@ function update_pickup(o)
     o.x += o.dx
     o.y += o.dy
     if o:collide(player) then
-        activate_lazer()
+        if o.pickup_type == "lazer" then
+            activate_lazer()
+        elseif o.pickup_type == "sticky" then
+            activate_sticky()
+        else
+            printh("i dont know what pickup type that was: " .. o.pickup_type)
+        end
         return false
     end
     return o.y < MAX_Y
@@ -755,6 +776,10 @@ function draw_table(table)
     for o in all(table) do
         o:draw()
     end
+end
+
+function is_a_powerup_activated()
+    return activate_ma_lazah or sticky_mode_activated
 end
 
 lazer_w = 8
@@ -772,6 +797,7 @@ function activate_lazer()
 end
 
 function update_lazer()
+    if not activate_ma_lazah then return end
     local rnd_x = rnd(5) - 2
     lazer_x = flr(player.center_x - lazer_w / 2 + rnd_x)
     for i = max(MIN_X, lazer_x - 1), min(MAX_X, lazer_x + lazer_w + 1) do
@@ -986,23 +1012,22 @@ function update_game()
     --     return
     -- end
     player:update()
-    if btn(4) then
+    if btnp(4) then
         -- shake += 1
         -- new_pickup {}
         -- add_layer {}
         -- test_ball_bounce()
         -- show_levelup = true
-        activate_sticky()
     end
     if btnp(5) then
         -- activate_lazer()
         -- new_pickup {}
         -- increase_current_ball_speed()
         -- test_ball_bounce()
-        shoot_sticky()
+        new_pickup {}
     end
     update_bitmap()
-    if activate_ma_lazah then update_lazer() end
+
     if t() % 2 == 0 then
         -- do more expensive calculations in here?
         if #balls == 0 and state == game_states.game and t() - time_at_init_game <= 10 then
@@ -1010,18 +1035,31 @@ function update_game()
         end
     end
 
+    update_lazer()
+    update_sticky()
     update_object_table(balls)
     update_object_table(pickups)
-    update_sticky()
     update_fx()
 end
 
 sticky_mode_activated = false
 sticky_bm = {}
+prev_player_width = 0
+sticky_width_increase = 4
+
+sticky_wait_time = 240
+sticky_timer = sticky_wait_time
+
 function activate_sticky()
     if sticky_mode_activated then return end
+
     printh("sticky mode activate")
     sticky_mode_activated = true
+    prev_player_width = player.w
+    player.w = player.w + sticky_width_increase
+    player.x = max(MIN_X, player.x - sticky_width_increase / 2)
+    sticky_timer = sticky_wait_time
+
     printh("sticky table: i=0," .. tostr(player.w - 1) .. " , j=" .. tostr(MIN_Y) .. "," .. player.y)
     for i = 0, player.w - 1 do
         sticky_bm[i] = {}
@@ -1031,17 +1069,42 @@ function activate_sticky()
     end
 end
 
-function add_sticky(x, y, c)
-    printh("sticky table: i=0," .. tostr(player.w - 1) .. " , j=" .. tostr(MIN_Y) .. "," .. player.y)
-    printh("add: " .. x .. ", " .. y)
-    sticky_bm[x][y] = c
+function add_sticky(tx, c)
+    local x = max(0, min(tx, player.w - 1))
+    for j = player.y, MIN_Y, -1 do
+        printh(quote({ x, j }))
+        if sticky_bm[x][j] == 0 then
+            sticky_bm[x][j] = c
+            return
+        end
+        --     if rnd(1) > layer_randomness then
+        --     local prev_color = arg.color or bm_new_layer_color
+        --     for j = MIN_Y, MAX_Y + 1 do
+        --         local c = bm[i][j]
+        --         bm[i][j] = prev_color
+        --         prev_color = c
+        --     end
+        -- end
+    end
 end
 
 function update_sticky()
+    if not sticky_mode_activated then return end
+    sticky_timer -= 1
+    if sticky_timer <= 0 or btnp(4) then
+        shoot_sticky()
+    end
 end
 
+sticky_player_y_offset = 1
 function draw_sticky()
     if not sticky_mode_activated then return end
+    if sticky_timer < 30 then
+        player.y += sticky_player_y_offset
+        sticky_player_y_offset *= -1
+    end
+
+    if start_shaking then r = rand_sign() end
     for i = 0, player.w - 1 do
         for j = MIN_Y, player.y do
             if sticky_bm[i][j] != 0 then
@@ -1051,15 +1114,17 @@ function draw_sticky()
     end
 end
 
+sticky_speed = 1
 function shoot_sticky()
     for i = 0, player.w - 1 do
         for j = MIN_Y, player.y do
             if sticky_bm[i][j] != 0 then
-                new_ball { x = player.x + i, y = j, w = 1, h = 1, dx = rand_dir() * 2, dy = -1 * 2, c = sticky_bm[i][j] }
+                new_ball { x = player.x + i, y = j, w = 1, h = 1, dx = player.dx * sticky_speed, dy = -1 * sticky_speed, c = sticky_bm[i][j] }
                 sticky_bm[i][j] = 0
             end
         end
     end
+    player.w = prev_player_width
     sticky_mode_activated = false
 end
 
@@ -1083,11 +1148,11 @@ e77e00006760000077cc7700cccccccc000000000000000000000000000000000000000000000000
 0000000067776000000000000cccccc0000000000000000000000000000000000000000000000000000000000000000060000006600000066000000600000000
 00000000677760000000000000000000000000000000000000000000000000000000000000000000000000000000000060000006600000066000000600000000
 00000000677760000000000000000000000000000000000000000000000000000000000000000000000000000000000060000006600000066666666600000000
-00000000677760000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000677760000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000677760000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000677760000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000677760000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0000000067776000077b700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000000006777600077b7770000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0000000067776000777b770000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0000000067776000b7b77b0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000677760000bbbb00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000677760000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000677760000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000677760000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
