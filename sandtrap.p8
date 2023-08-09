@@ -28,10 +28,11 @@ cool_colors_index = 0
 
 printh("START")
 score = 0
+
 function change_state(new_state)
     if new_state == game_states.splash then
         state = game_states.splash
-        init_spash()
+        init_splash()
     elseif new_state == game_states.game then
         state = game_states.game
         init_game()
@@ -275,7 +276,7 @@ function _init()
     -- enable mouse
     cls()
     state = game_states.splash
-    init_spash()
+    init_splash()
     -- state = game_states.game
     -- init_game()
 end
@@ -306,7 +307,6 @@ time_at_init_game = 0
 ready_start_timer = 30
 function init_game()
     printh("NEW STATE: game")
-    bm = {}
     init_bitmap { include_blocks = true }
     init_player()
     effects = {}
@@ -327,7 +327,7 @@ end
 
 -- SPLASH
 splash_timer = 0
-function init_spash()
+function init_splash()
     printh("NEW STATE: splash")
     init_bitmap { include_blocks = false }
     splash_timer = 0
@@ -373,7 +373,7 @@ function update_splash()
         change_state(game_states.game)
     end
 
-    if splash_timer % 4 == 0 then
+    if splash_timer % 4 == 0 and not transition_completed then
         add_layer {}
     end
 
@@ -582,9 +582,10 @@ end
 --------- START
 
 function init_bitmap(arg)
-    bm = {}
     bm_new_layer_frequency = bm_new_layer_frequency_default
+    bm_new_layer_timer = bm_new_layer_frequency
     bm_layer_count = 0
+    bm = {}
     for i = MIN_X, MAX_X + 1 do
         bm[i] = {}
         for j = MIN_Y, MAX_Y + 1 do
@@ -1250,7 +1251,6 @@ activate_ma_lazah = false
 function update_game()
     if ready_start_timer > 0 then
         ready_start_timer -= 1
-
         return
     end
     -- if show_levelup then
