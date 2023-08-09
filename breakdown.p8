@@ -338,6 +338,9 @@ function update_splash()
 
     if splash_timer > 30 and #balls == 0 then
         new_big_ball()
+        balls[1].x = flr(rnd(MAX_X) + 8)
+        balls[1].y = 40
+        balls[1].dy = -1
     end
 
     if enable_transition then
@@ -379,6 +382,7 @@ blink_text = false
 function draw_splash()
     if not transition_stop_drawing_splash then
         draw_bitmap()
+        -- draw_table(balls)
         local text = "color"
         write(text, text_x_pos(text), 20, 7)
         text = "cascade"
@@ -584,9 +588,9 @@ function update_bitmap()
     bm_new_layer_timer -= 1
     if bm_new_layer_timer <= 0 then
         bm_new_layer_timer = bm_new_layer_frequency
-        -- if is_a_powerup_activated() then
-        --     return
-        -- end
+        if sticky_mode_activated then
+            return
+        end
         add_layer {}
         if bm_layer_count % bm_new_layer_frequency_per_layers == 0 then
             bm_new_layer_frequency = max(bm_new_layer_frequency - bm_new_layer_frequency_decrease, bm_new_layer_frequency_min)
@@ -610,12 +614,21 @@ end
 layer_randomness = 0.2
 edge_width = 3
 edge_randomness = 0.6
+layer_max_height_at_x = {}
+for i = MIN_X, MAX_X do
+    layer_max_height_at_x[i] = 0
+end
+-- layer_max_height_total = 0
+layer_height_avg = 0
 function add_layer(arg)
     if bm_layer_count % 4 == 0 then
         bm_new_layer_color = get_next_cool_color()
     end
 
-    -- middle sand part
+    -- for i = MIN_X, MAX_X do
+    --     layer_max_height_at_x[i] = 0
+    -- end
+    -- layer_max_height_total = 0
     for i = MIN_X, MAX_X do
         if rnd(1) > layer_randomness then
             local prev_color = arg.color or bm_new_layer_color
@@ -623,31 +636,41 @@ function add_layer(arg)
                 local c = bm[i][j]
                 bm[i][j] = prev_color
                 prev_color = c
+                if bm[i][j] > 0 then
+                    layer_max_height_at_x[i] = j
+                    -- layer_max_height_total = max(j, layer_max_height_total)
+                end
             end
         end
     end
-
+    layer_height_avg = 0
+    for i = MIN_X, MAX_X do
+        layer_height_avg += layer_max_height_at_x[i]
+    end
+    layer_height_avg /= MAX_X
+    printh(layer_height_avg)
+    -- loosen_some_sand {}
     bm_layer_count += 1
 end
 
 function loosen_some_sand(arg)
-    local n = arg.amount or flr(rnd(14))
+    -- local n = arg.amount or flr(rnd(14))
 
-    for i = 0, n do
-        local x = flr(rnd(MAX_X) + 1)
-        local s = get_max_sand_at_x(x)
-        new_ball { x = x, y = s.y + 2, w = 1, h = 1, dx = 0, dy = 1, c = s.c }
-    end
+    local x = arg.x or flr(rnd(MAX_X) + 1)
+    local s = get_max_sand_at_x(x)
+    local c = arg.c or s.c
+    new_ball { x = x, y = s.y + 1, w = 1, h = 1, dx = 0, dy = 1, c = c }
+    -- for i = 0, n do
+    --     local x = flr(rnd(MAX_X) + 1)
+    --     local s = get_max_sand_at_x(x)
+    --     new_ball { x = x, y = s.y + 1, w = 1, h = 1, dx = 0, dy = 1, c = s.c }
+    -- end
 end
 
 function get_max_sand_at_x(x)
-    for i = MIN_Y, MAX_Y do
-        if bm[x][i] == 0 then
-            return { x = x, y = i - 1, c = bm[x][i - 1] }
-        end
-    end
-    printh("get_max_sand_at_x - IDK WHAT HAPPENED")
-    return { x = 1, y = 1, c = 7 }
+    printh(x)
+    local y = layer_max_height_at_x[x] or MIN_Y
+    return { x = x, y = y, c = bm[x][y] }
 end
 
 function draw_bitmap()
@@ -656,6 +679,12 @@ function draw_bitmap()
             pset(i, j, bm[i][j])
         end
     end
+
+    -- draw max
+    -- for i = MIN_X, MAX_X do
+    --     local j = layer_max_height_at_x[i]
+    --     pset(i, j, 7)
+    -- end
 end
 
 function test_ball_bounce()
@@ -677,9 +706,9 @@ xp_before_pickup = 200
 function absorb_xp()
     total_xp += 1
     xp_ratio = total_xp / xp_required
-    if total_xp % xp_before_pickup == 0 then
-        new_pickup {}
-    end
+    -- if total_xp % xp_before_pickup == 0 then
+    --     new_pickup {}
+    -- end
     -- printh("XP: " .. total_xp)
 end
 
@@ -894,6 +923,7 @@ function new_pickup(arg)
     end
 
     add(pickups, o)
+    spawned_pickup_timer = spawned_pickup_timer_wait
 end
 
 function update_pickup(o)
@@ -1173,33 +1203,50 @@ function update_game()
     if btnp(4) then
         -- loosen_some_sand {}
         -- shake += 1
-        -- new_pickup {}
         -- add_layer {}
         -- test_ball_bounce()
         -- show_levelup = true
     end
     if btnp(5) then
         -- activate_lazer()
-        -- new_pickup {}
         -- increase_current_ball_speed()
         -- test_ball_bounce()
         new_pickup {}
     end
     update_bitmap()
 
-    if t() % 2 == 0 then
+    if t() * 10 % 10 == 0 then
         -- do more expensive calculations in here?
-        if #balls == 0 and state == game_states.game and t() - time_at_init_game <= 10 then
-            -- new_big_ball()
-            loosen_some_sand { amount = 1 }
+        if #balls == 0 and state == game_states.game and not start_ceiling_drop then
+            new_big_ball()
+            -- loosen_some_sand { amount = 1 }
+        end
+
+        if should_spawn_pickup() then
+            new_pickup {}
         end
     end
 
     update_lazer()
     update_sticky()
+
     update_object_table(balls)
     update_object_table(pickups)
     update_fx()
+
+    if not is_a_powerup_activated then
+        spawned_pickup_timer -= 1
+    end
+end
+
+danger_height = 32
+spawned_pickup_timer = 900
+spawned_pickup_timer_wait = 300
+function should_spawn_pickup()
+    if layer_height_avg >= danger_height and spawned_pickup_timer <= 0 then
+        return true
+    end
+    return false
 end
 
 sticky_mode_activated = false
@@ -1210,6 +1257,8 @@ sticky_width_increase = 4
 sticky_wait_time = 240
 sticky_timer = sticky_wait_time
 
+loosened_sand_dir = 0
+loosen_sand_x = 32
 function activate_sticky()
     if sticky_mode_activated then return end
 
@@ -1219,6 +1268,8 @@ function activate_sticky()
     player.w = player.w + sticky_width_increase
     player.x = max(MIN_X, player.x - sticky_width_increase / 2)
     sticky_timer = sticky_wait_time
+    loosened_sand_dir = rand_sign()
+    loosen_sand_x = flr(4 + rnd(50))
 
     printh("sticky table: i=0," .. tostr(player.w - 1) .. " , j=" .. tostr(MIN_Y) .. "," .. player.y)
     for i = 0, player.w - 1 do
@@ -1250,6 +1301,14 @@ end
 
 function update_sticky()
     if not sticky_mode_activated then return end
+
+    -- spawn sand to catch
+    loosen_sand_x += loosened_sand_dir
+    if loosen_sand_x < MIN_X or loosen_sand_x > MAX_X then
+        loosened_sand_dir *= -1
+        loosen_sand_x += loosened_sand_dir
+    end
+    loosen_some_sand { x = loosen_sand_x }
 
     sticky_timer -= 1
     if sticky_timer <= 0 or btnp(4) then
