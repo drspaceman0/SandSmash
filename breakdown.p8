@@ -216,14 +216,32 @@ function update_player(o)
         player.dx = o.speed
     end
     if stat(34) == 1 then
-        local mouse_x = stat(32)
-        if mouse_x < MAX_X / 2 then
-            player.x = max(player.x - o.speed, MIN_X)
-            player.dx = -o.speed
-        else
-            player.x = min(player.x + o.speed, MAX_X - player.w + 1)
-            player.dx = o.speed
-        end
+        mouse_x = stat(32)
+        mouse_y = stat(33)
+        -- left right side controls
+        -- if mouse_x < MAX_X / 2 then
+        --     player.x = max(player.x - o.speed, MIN_X)
+        --     player.dx = -o.speed
+        -- else
+        --     player.x = min(player.x + o.speed, MAX_X - player.w + 1)
+        --     player.dx = o.speed
+        -- end
+
+        -- move torwards mouse
+        -- if player.center_x > min(mouse_x, MAX_X - player.h / 2) then
+        --     player.x = max(player.x - o.speed, MIN_X)
+        --     player.dx = -o.speed
+        -- elseif player.center_x < max(mouse_x, player.h / 2) then
+        --     player.x = min(player.x + o.speed, MAX_X - player.w + 1)
+        --     player.dx = o.speed
+        -- end
+
+        player.x = min(MAX_X - player.w, max(MIN_X, mouse_x + player.w / 2))
+        local x_diff = player.x - player.prev_x
+
+        x_diff = max(-1, min(1, x_diff))
+        player.dx = x_diff * player.speed
+        player.prev_x = player.x
     end
 
     o.center_x = o.x + flr(o.w / 2)
@@ -234,6 +252,9 @@ end
 
 function draw_player(o)
     rectfill(o.x, o.y, o.x + o.w - 1, o.y + o.h, o.c)
+    if stat(34) == 1 then
+        spr(4, mouse_x, mouse_y)
+    end
 end
 
 player_color_change_interval = 5
@@ -246,6 +267,7 @@ player_speed = default_player_speed
 function init_player()
     player = Entity.create { x = MIN_X + 32, y = player_y, h = 1, w = player_w_min, c = 8, update = update_player, draw = draw_player, speed = player_speed }
     player.collision = false
+    player.prev_x = x
 end
 
 -- Pico8 game funtions
@@ -1367,9 +1389,9 @@ function rand_dir()
 end
 
 __gfx__
-0ee0000060000000077770000cccccc0000000000000000000000000000000000000000000000000000000000000000066000000600000066000000600000000
-e77e00006600000077c77700cccccccc000000000000000000000000000000000000000000000000000000000000000060660000600000066000000600000000
-e77e00006760000077cc7700cccccccc000000000000000000000000000000000000000000000000000000000000000060006600600000066000000600000000
+0ee0000060000000077770000cccccc0070000000000000000000000000000000000000000000000000000000000000066000000600000066000000600000000
+e77e00006600000077c77700cccccccc707000000000000000000000000000000000000000000000000000000000000060660000600000066000000600000000
+e77e00006760000077cc7700cccccccc070000000000000000000000000000000000000000000000000000000000000060006600600000066000000600000000
 0ee0000067760000c7777c00cccccccc000000000000000000000000000000000000000000000000000000000000000060000066600000066000000600000000
 00000000677760000cccc000cccccccc000000000000000000000000000000000000000000000000000000000000000060000006600000066000000600000000
 0000000067776000000000000cccccc0000000000000000000000000000000000000000000000000000000000000000060000006600000066000000600000000
