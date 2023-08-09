@@ -236,7 +236,7 @@ function update_player(o)
         --     player.dx = o.speed
         -- end
 
-        player.x = min(MAX_X - player.w, max(MIN_X, mouse_x + player.w / 2))
+        player.x = min(MAX_X - player.w, max(MIN_X, mouse_x + 1 - player.w / 2))
         local x_diff = player.x - player.prev_x
 
         x_diff = max(-1, min(1, x_diff))
