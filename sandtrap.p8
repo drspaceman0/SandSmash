@@ -405,10 +405,11 @@ function draw_splash()
     if not transition_stop_drawing_splash then
         draw_bitmap()
         -- draw_table(balls)
-        local text = "color"
-        write(text, text_x_pos(text), 20, 7)
-        text = "cascade"
-        write(text, text_x_pos(text), 27, 7)
+        local text = "sand-trap"
+
+        write(text, text_x_pos(text), 28, 7)
+        -- text = "trap"
+        -- write(text, text_x_pos(text), 27, 7)
 
         if t() % 1 == 0 then blink_text = not blink_text end
 
