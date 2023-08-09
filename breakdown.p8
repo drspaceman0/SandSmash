@@ -657,14 +657,13 @@ function loosen_some_sand(arg)
     -- local n = arg.amount or flr(rnd(14))
 
     local x = arg.x or flr(rnd(MAX_X) + 1)
-    local s = get_max_sand_at_x(x)
+    local s = get_max_sand_at_x(x) or { x = x, y = 1, c = get_rand_cool_color() }
+    printh(quote(s))
     local c = arg.c or s.c
+    if c == 0 then
+        c = get_rand_cool_color()
+    end
     new_ball { x = x, y = s.y + 1, w = 1, h = 1, dx = 0, dy = 1, c = c }
-    -- for i = 0, n do
-    --     local x = flr(rnd(MAX_X) + 1)
-    --     local s = get_max_sand_at_x(x)
-    --     new_ball { x = x, y = s.y + 1, w = 1, h = 1, dx = 0, dy = 1, c = s.c }
-    -- end
 end
 
 function get_max_sand_at_x(x)
@@ -849,8 +848,11 @@ player_speed_dampining = 2
 function calculate_player_reflect(b)
     -- x
 
-    local b_offset = b.x - player.center_x
-    b.dx = b_offset / reflect_magnitude + player.dx / player_speed_dampining
+    -- local b_offset = b.x - player.center_x
+    -- b.dx = b_offset / reflect_magnitude + player.dx / player_speed_dampining
+    -- b.dx = max(-1, min(1, b.dx))
+
+    b.dx = player.dx / player_speed_dampining
 
     -- if player.dx != 0 then
     --     b.dx = player.dx / 2
@@ -983,7 +985,7 @@ function update_lazer()
     for i = max(MIN_X, lazer_x - 1), min(MAX_X, lazer_x + lazer_w + 1) do
         for j = MIN_Y, MAX_Y do
             if bm[i][j] != 0 then
-                if rnd(1) > 0.4 then add(lazer_residue, { x = i, y = flr(rnd(MAX_Y)), c = lazer_color }) end
+                if rnd(1) > 0.95 then add(lazer_residue, { x = i, y = flr(rnd(MAX_Y)), c = lazer_color }) end
 
                 if #effects < max_effects then
                     explode(i, j, explode_size, explode_colors, bm[i][j])
@@ -1234,12 +1236,12 @@ function update_game()
     update_object_table(pickups)
     update_fx()
 
-    if not is_a_powerup_activated then
+    if not is_a_powerup_activated() then
         spawned_pickup_timer -= 1
     end
 end
 
-danger_height = 32
+danger_height = 26
 spawned_pickup_timer = 900
 spawned_pickup_timer_wait = 300
 function should_spawn_pickup()
@@ -1254,7 +1256,7 @@ sticky_bm = {}
 prev_player_width = 0
 sticky_width_increase = 4
 
-sticky_wait_time = 240
+sticky_wait_time = 180
 sticky_timer = sticky_wait_time
 
 loosened_sand_dir = 0
