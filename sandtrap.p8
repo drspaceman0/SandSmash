@@ -212,34 +212,34 @@ function update_player(o)
         player.x = min(player.x + o.speed, MAX_X - player.w + 1)
         player.dx = o.speed
     end
-    if stat(34) == 1 then
-        mouse_x = stat(32)
-        mouse_y = stat(33)
-        -- left right side controls
-        -- if mouse_x < MAX_X / 2 then
-        --     player.x = max(player.x - o.speed, MIN_X)
-        --     player.dx = -o.speed
-        -- else
-        --     player.x = min(player.x + o.speed, MAX_X - player.w + 1)
-        --     player.dx = o.speed
-        -- end
+    -- if stat(34) == 1 then
+    --     mouse_x = stat(32)
+    --     mouse_y = stat(33)
+    --     -- left right side controls
+    --     -- if mouse_x < MAX_X / 2 then
+    --     --     player.x = max(player.x - o.speed, MIN_X)
+    --     --     player.dx = -o.speed
+    --     -- else
+    --     --     player.x = min(player.x + o.speed, MAX_X - player.w + 1)
+    --     --     player.dx = o.speed
+    --     -- end
 
-        -- move torwards mouse
-        -- if player.center_x > min(mouse_x, MAX_X - player.h / 2) then
-        --     player.x = max(player.x - o.speed, MIN_X)
-        --     player.dx = -o.speed
-        -- elseif player.center_x < max(mouse_x, player.h / 2) then
-        --     player.x = min(player.x + o.speed, MAX_X - player.w + 1)
-        --     player.dx = o.speed
-        -- end
+    --     -- move torwards mouse
+    --     -- if player.center_x > min(mouse_x, MAX_X - player.h / 2) then
+    --     --     player.x = max(player.x - o.speed, MIN_X)
+    --     --     player.dx = -o.speed
+    --     -- elseif player.center_x < max(mouse_x, player.h / 2) then
+    --     --     player.x = min(player.x + o.speed, MAX_X - player.w + 1)
+    --     --     player.dx = o.speed
+    --     -- end
 
-        player.x = min(MAX_X - player.w, max(MIN_X, mouse_x + 1 - player.w / 2))
-        local x_diff = player.x - player.prev_x
+    --     player.x = min(MAX_X - player.w, max(MIN_X, mouse_x + 1 - player.w / 2))
+    --     local x_diff = player.x - player.prev_x
 
-        x_diff = max(-1, min(1, x_diff))
-        player.dx = x_diff * player.speed
-        player.prev_x = player.x
-    end
+    --     x_diff = max(-1, min(1, x_diff))
+    --     player.dx = x_diff * player.speed
+    --     player.prev_x = player.x
+    -- end
 
     o.center_x = o.x + flr(o.w / 2)
     if t() % player_color_change_interval == 0 then
@@ -249,9 +249,9 @@ end
 
 function draw_player(o)
     rectfill(o.x, o.y, o.x + o.w - 1, o.y + o.h, o.c)
-    if stat(34) == 1 then
-        spr(4, mouse_x, mouse_y)
-    end
+    -- if stat(34) == 1 then
+    --     spr(4, mouse_x, mouse_y)
+    -- end
 end
 
 player_color_change_interval = 5
@@ -272,7 +272,7 @@ end
 function _init()
     poke(0x5f2c, 3)
     -- 64 bit mode
-    poke(0x5F2D, 1)
+    -- poke(0x5F2D, 1)
     -- enable mouse
     cls()
     state = game_states.splash
@@ -716,7 +716,6 @@ function loosen_some_sand(arg)
 
     local x = arg.x or flr(rnd(MAX_X) + 1)
     local s = get_max_sand_at_x(x) or { x = x, y = 1, c = get_rand_cool_color() }
-    printh(quote(s))
     local c = arg.c or s.c
     if c == 0 then
         c = get_rand_cool_color()
@@ -725,7 +724,6 @@ function loosen_some_sand(arg)
 end
 
 function get_max_sand_at_x(x)
-    printh(x)
     local y = layer_max_height_at_x[x] or MIN_Y
     return { x = x, y = y, c = bm[x][y] }
 end
@@ -1342,7 +1340,6 @@ end
 function add_sticky(tx, c)
     local x = max(0, min(tx, player.w - 1))
     for j = player.y, MIN_Y, -1 do
-        printh(quote({ x, j }))
         if sticky_bm[x][j] == 0 then
             sticky_bm[x][j] = c
             return
