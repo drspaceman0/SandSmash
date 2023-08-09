@@ -285,6 +285,7 @@ function _draw()
 end
 
 time_at_init_game = 0
+ready_start_timer = 30
 function init_game()
     printh("NEW STATE: game")
     bm = {}
@@ -300,29 +301,13 @@ function init_game()
     time_at_init_game = t()
     start_ceiling_drop = false
     start_ceiling_drop_timer = 120
+
+    ready_start_timer = 30
     -- test_ball_bounce()
     -- confetti()
 end
 
 -- SPLASH
-
-function update_splash()
-    if btnp(4) then
-        change_state(game_states.game)
-    end
-
-    if splash_timer % 4 == 0 then
-        add_layer {}
-    end
-
-    if splash_timer > 30 and #balls == 0 then
-        new_big_ball()
-    end
-
-    update_object_table(balls)
-    splash_timer += 1
-end
-
 splash_timer = 0
 function init_spash()
     printh("NEW STATE: splash")
@@ -333,16 +318,89 @@ function init_spash()
     player.y = 300
 end
 
+transition_stop_drawing_splash = false
+max_circles = 0
+function update_splash()
+    if btnp(5) and not enable_transition then
+        enable_transition = true
+        for i = MIN_X, MAX_X, 4 do
+            for j = MIN_Y, MAX_Y, 4 do
+                local c = cool_colors[min(#cool_colors, max(1, flr(j / 7)))]
+                new_circle(i, j, c, (i + j) / 10)
+            end
+        end
+        max_circles = #circles
+    end
+
+    if splash_timer % 4 == 0 then
+        add_layer {}
+    end
+
+    if splash_timer > 30 and #balls == 0 then
+        new_big_ball()
+    end
+
+    if enable_transition then
+        update_object_table(circles)
+        if #circles < max_circles and not transition_stop_drawing_splash then
+            transition_stop_drawing_splash = true
+        elseif #circles <= 0 then
+            printh("CHANGE TO GAME")
+            change_state(game_states.game)
+            return
+        end
+    end
+
+    update_object_table(balls)
+    splash_timer += 1
+end
+
+function new_circle(x, y, c, t)
+    add(circles, { x = x, y = y, r = 0, step = 0.4, c = c, update = update_circle, draw = draw_circle, start_timer = t })
+end
+
+function draw_circle(c)
+    if c.r > 1 then
+        circfill(c.x, c.y, c.r, c.c)
+    end
+end
+
+function update_circle(c)
+    c.start_timer -= 1
+    if c.start_timer > 0 then return true end
+    c.r += c.step
+    if c.r >= 4 then
+        c.step *= -1
+    end
+    return c.r >= 0
+end
+
+blink_text = false
 function draw_splash()
-    draw_bitmap()
-    local text = "color"
-    write(text, text_x_pos(text), 20, 7)
-    text = "cascade"
-    write(text, text_x_pos(text), 27, 7)
-    write("press z to start", 0, 54, 7)
+    if not transition_stop_drawing_splash then
+        draw_bitmap()
+        local text = "color"
+        write(text, text_x_pos(text), 20, 7)
+        text = "cascade"
+        write(text, text_x_pos(text), 27, 7)
+
+        if t() % 1 == 0 then blink_text = not blink_text end
+
+        if blink_text then write("press z", 16, 54, 7) end
+    end
+    if enable_transition then
+        draw_transition()
+    end
 end
 
 -- GAME
+
+enable_transition = false
+
+circles = {}
+function draw_transition()
+    draw_table(circles)
+end
 
 function draw_game()
     -- rect(0, 0, SCREEN_SIZE - 1, SCREEN_SIZE - 1, 8)
@@ -359,6 +417,14 @@ function draw_game()
 
     draw_levelup()
     draw_sticky()
+
+    if ready_start_timer > 0 then
+        local text = "ready?"
+        if ready_start_timer < 10 then
+            text = "go!"
+        end
+        write(text, text_x_pos(text), 20, 7)
+    end
 
     -- early_start()
 end
@@ -867,45 +933,54 @@ lazer_x = 0
 
 lazer_duration = 30
 lazer_timer = lazer_duration
+lazer_residue = {}
+
 function activate_lazer()
     activate_ma_lazah = true
     lazer_timer = lazer_duration
     local rnd_x = rnd(5) - 2
     lazer_x = flr(player.center_x - lazer_w / 2 + rnd_x)
+    lazer_range = { lazer_x, lazer_x + lazer_w }
+
+    lazer_residue = {}
 end
 
 function update_lazer()
     if not activate_ma_lazah then return end
     local rnd_x = rnd(5) - 2
     lazer_x = flr(player.center_x - lazer_w / 2 + rnd_x)
+
     for i = max(MIN_X, lazer_x - 1), min(MAX_X, lazer_x + lazer_w + 1) do
         for j = MIN_Y, MAX_Y do
             if bm[i][j] != 0 then
+                if rnd(1) > 0.4 then add(lazer_residue, { x = i, y = flr(rnd(MAX_Y)), c = lazer_color }) end
+
                 if #effects < max_effects then
                     explode(i, j, explode_size, explode_colors, bm[i][j])
-                    -- if rand_sign() == 1 then
-                    --     explode(i, j, explode_size, { bm[i][j] }, bm[i][j])
-                    -- else
-                    --     explode(i, j, explode_size, explode_colors, bm[i][j])
-                    -- end
-
-                    --
                 end
                 bm[i][j] = 0
                 shake = min(shake + 0.2, max_shake)
             end
         end
     end
+
     lazer_timer -= 1
     if lazer_timer <= 0 then
+        for o in all(lazer_residue) do
+            new_ball { x = o.x, y = o.y, w = 1, h = 1, dx = 0, dy = 1, c = o.c }
+        end
+
         activate_ma_lazah = false
+        lazer_residue = {}
     end
 end
 
 function draw_lazer()
+    for o in all(lazer_residue) do
+        pset(o.x, o.y, o.c)
+    end
     rectfill(lazer_x, MIN_Y, lazer_x + lazer_w, player.y - 1, lazer_border_color)
     rectfill(lazer_x + 1, MIN_Y, lazer_x + lazer_w - 1, player.y - 1, lazer_color)
-    -- particles
 end
 
 ball_speed_increase = 1.2
@@ -1084,6 +1159,11 @@ end
 
 activate_ma_lazah = false
 function update_game()
+    if ready_start_timer > 0 then
+        ready_start_timer -= 1
+
+        return
+    end
     -- if show_levelup then
     --     update_fx()
     --     update_levelup()
