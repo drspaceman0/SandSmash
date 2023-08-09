@@ -41,27 +41,6 @@ function change_state(new_state)
     end
 end
 
-function init_spash()
-    printh("NEW STATE: splash")
-end
-
-time_at_init_game = 0
-function init_game()
-    printh("NEW STATE: game")
-    init_bitmap()
-    init_player()
-    effects = {}
-    balls = {}
-    pickups = {}
-    score = 0
-    total_balls = 0
-    total_xp = 0
-    new_big_ball()
-    time_at_init_game = t()
-    -- test_ball_bounce()
-    -- confetti()
-end
-
 function restart()
     change_state(game_states.game)
 end
@@ -81,11 +60,6 @@ fire_amount = 3
 explode_size = 2
 explode_colors = { 8, 9, 6, 5 }
 explode_amount = 2
-
---sfx
-trail_sfx = 0
-explode_sfx = 1
-fire_sfx = 2
 
 max_effects = 680
 function add_fx(x, y, die, dx, dy, grav, grow, shrink, r, c_table)
@@ -241,6 +215,17 @@ function update_player(o)
         player.x = min(player.x + o.speed, MAX_X - player.w + 1)
         player.dx = o.speed
     end
+    if stat(34) == 1 then
+        local mouse_x = stat(32)
+        if mouse_x < MAX_X / 2 then
+            player.x = max(player.x - o.speed, MIN_X)
+            player.dx = -o.speed
+        else
+            player.x = min(player.x + o.speed, MAX_X - player.w + 1)
+            player.dx = o.speed
+        end
+    end
+
     o.center_x = o.x + flr(o.w / 2)
     if t() % player_color_change_interval == 0 then
         player.c = bm_new_layer_color
@@ -267,9 +252,14 @@ end
 
 function _init()
     poke(0x5f2c, 3)
+    -- 64 bit mode
+    poke(0x5F2D, 1)
+    -- enable mouse
     cls()
-    state = game_states.game
-    init_game()
+    state = game_states.splash
+    init_spash()
+    -- state = game_states.game
+    -- init_game()
 end
 
 -- function _update()
@@ -294,19 +284,62 @@ function _draw()
     end
 end
 
+time_at_init_game = 0
+function init_game()
+    printh("NEW STATE: game")
+    bm = {}
+    init_bitmap { include_blocks = true }
+    init_player()
+    effects = {}
+    balls = {}
+    pickups = {}
+    score = 0
+    total_balls = 0
+    total_xp = 0
+    new_big_ball()
+    time_at_init_game = t()
+    start_ceiling_drop = false
+    start_ceiling_drop_timer = 120
+    -- test_ball_bounce()
+    -- confetti()
+end
+
 -- SPLASH
 
 function update_splash()
-    -- usually we want the player to press one button
-    -- if btn(5) then
-    --     change_state()
-    -- end
+    if btnp(4) then
+        change_state(game_states.game)
+    end
+
+    if splash_timer % 4 == 0 then
+        add_layer {}
+    end
+
+    if splash_timer > 30 and #balls == 0 then
+        new_big_ball()
+    end
+
+    update_object_table(balls)
+    splash_timer += 1
+end
+
+splash_timer = 0
+function init_spash()
+    printh("NEW STATE: splash")
+    init_bitmap { include_blocks = false }
+    splash_timer = 0
+    balls = {}
+    init_player()
+    player.y = 300
 end
 
 function draw_splash()
-    rectfill(0, 0, SCREEN_SIZE, SCREEN_SIZE, 11)
-    local text = "hello world"
-    write(text, text_x_pos(text), 52, 7)
+    draw_bitmap()
+    local text = "color"
+    write(text, text_x_pos(text), 20, 7)
+    text = "cascade"
+    write(text, text_x_pos(text), 27, 7)
+    write("press z to start", 0, 54, 7)
 end
 
 -- GAME
@@ -422,21 +455,27 @@ end
 
 --------- START
 
-function init_bitmap()
+function init_bitmap(arg)
+    bm = {}
+    bm_new_layer_frequency = bm_new_layer_frequency_default
+    bm_layer_count = 0
     for i = MIN_X, MAX_X + 1 do
         bm[i] = {}
         for j = MIN_Y, MAX_Y + 1 do
             bm[i][j] = 0
         end
     end
-    for i = 0, 4 do
-        bitmap_brick { x = 10 + 8 * i, y = 10, w = 6, h = 3, c1 = 13, c2 = 12 }
-    end
-    for i = 0, 4 do
-        bitmap_brick { x = 10 + 8 * i, y = 15, w = 6, h = 3, c1 = 9, c2 = 10 }
-    end
-    for i = 0, 4 do
-        bitmap_brick { x = 10 + 8 * i, y = 20, w = 6, h = 3, c1 = 8, c2 = 14 }
+
+    if arg.include_blocks then
+        for i = 0, 4 do
+            bitmap_brick { x = 10 + 8 * i, y = 10, w = 6, h = 3, c1 = 13, c2 = 12 }
+        end
+        for i = 0, 4 do
+            bitmap_brick { x = 10 + 8 * i, y = 15, w = 6, h = 3, c1 = 9, c2 = 10 }
+        end
+        for i = 0, 4 do
+            bitmap_brick { x = 10 + 8 * i, y = 20, w = 6, h = 3, c1 = 8, c2 = 14 }
+        end
     end
 end
 
@@ -458,7 +497,10 @@ end
 
 bm_layer_count = 0
 bm_new_layer_color = 11
-bm_new_layer_frequency = 20
+bm_new_layer_frequency_default = 18
+-- bm_new_layer_frequency_default = 5
+bm_new_layer_frequency = bm_new_layer_frequency_default
+
 bm_new_layer_frequency_decrease = 0.5
 bm_new_layer_frequency_min = 4
 bm_new_layer_timer = bm_new_layer_frequency
@@ -520,6 +562,26 @@ function add_layer(arg)
     end
 
     bm_layer_count += 1
+end
+
+function loosen_some_sand(arg)
+    local n = arg.amount or flr(rnd(14))
+
+    for i = 0, n do
+        local x = flr(rnd(MAX_X) + 1)
+        local s = get_max_sand_at_x(x)
+        new_ball { x = x, y = s.y + 2, w = 1, h = 1, dx = 0, dy = 1, c = s.c }
+    end
+end
+
+function get_max_sand_at_x(x)
+    for i = MIN_Y, MAX_Y do
+        if bm[x][i] == 0 then
+            return { x = x, y = i - 1, c = bm[x][i - 1] }
+        end
+    end
+    printh("get_max_sand_at_x - IDK WHAT HAPPENED")
+    return { x = 1, y = 1, c = 7 }
 end
 
 function draw_bitmap()
@@ -614,19 +676,36 @@ function draw_xp_bar()
     end
 end
 
+--  { 8, 9, 10, 11, 12, 13, 14 }
 function draw_ball(b)
     pset(b.x, b.y, b.c)
 end
 
+function get_relative_color(b)
+    return cool_colors[min(#cool_colors, max(1, flr(b.y / 7)))]
+end
+
 function update_ball(b)
+    local x, y
     -- printh(quote(b))
     b.x += b.dx * b.speed
     b.y += b.dy * b.speed
 
     if b.x > MAX_X or b.x < MIN_X then
+        x, y = flr(b.x), flr(b.y)
         if b.x < MIN_X then
+            -- sometimes skips edge sand.
+            if bm[MIN_X + 1][y] != 0 then
+                new_ball { x = x, y = y, w = 1, h = 1, dx = 0, dy = 1, c = bm[MIN_X + 1][y] }
+                bm[MIN_X + 1][y] = 0
+            end
             b.x *= -1
         else
+            -- sometimes skips edge sand.
+            if bm[MAX_X][y] != 0 then
+                new_ball { x = x, y = y, w = 1, h = 1, dx = 0, dy = 1, c = bm[MAX_X][y] }
+                bm[MAX_X][y] = 0
+            end
             b.x = 2 * MAX_X - b.x
         end
         -- b.x = max(min(b.x, MAX_X), MIN_X)
@@ -658,7 +737,7 @@ function update_ball(b)
     end
 
     -- bitmap collision
-    local x, y = flr(b.x), flr(b.y)
+    x, y = flr(b.x), flr(b.y)
     if bm[x][y] != 0 then
         b.dy = 1
         new_ball { x = x, y = y, w = 1, h = 1, dx = 0, dy = 1, c = bm[x][y] }
@@ -713,7 +792,6 @@ function new_ball(arg)
         dx = arg.dx, dy = arg.dy, time = default_ball_time, c = arg.c, update = arg.update or update_ball,
         draw = arg.draw or draw_ball, speed = ball_speed
     }
-
     add(balls, b)
     if #balls % 100 == 0 then printh("#balls: " .. #balls) end
     -- printh("# of balls: " .. #balls)
@@ -1013,6 +1091,7 @@ function update_game()
     -- end
     player:update()
     if btnp(4) then
+        -- loosen_some_sand {}
         -- shake += 1
         -- new_pickup {}
         -- add_layer {}
@@ -1031,7 +1110,8 @@ function update_game()
     if t() % 2 == 0 then
         -- do more expensive calculations in here?
         if #balls == 0 and state == game_states.game and t() - time_at_init_game <= 10 then
-            new_big_ball()
+            -- new_big_ball()
+            loosen_some_sand { amount = 1 }
         end
     end
 
@@ -1090,6 +1170,7 @@ end
 
 function update_sticky()
     if not sticky_mode_activated then return end
+
     sticky_timer -= 1
     if sticky_timer <= 0 or btnp(4) then
         shoot_sticky()
@@ -1104,7 +1185,7 @@ function draw_sticky()
         sticky_player_y_offset *= -1
     end
 
-    if start_shaking then r = rand_sign() end
+    -- if start_shaking then r = rand_sign() end
     for i = 0, player.w - 1 do
         for j = MIN_Y, player.y do
             if sticky_bm[i][j] != 0 then
@@ -1119,13 +1200,18 @@ function shoot_sticky()
     for i = 0, player.w - 1 do
         for j = MIN_Y, player.y do
             if sticky_bm[i][j] != 0 then
-                new_ball { x = player.x + i, y = j, w = 1, h = 1, dx = player.dx * sticky_speed, dy = -1 * sticky_speed, c = sticky_bm[i][j] }
+                new_ball { update = update_sticky_ball, x = player.x + i, y = j, w = 1, h = 1, dx = player.dx * sticky_speed, dy = -1 * sticky_speed, c = sticky_bm[i][j] }
                 sticky_bm[i][j] = 0
             end
         end
     end
     player.w = prev_player_width
     sticky_mode_activated = false
+end
+
+function update_sticky_ball(b)
+    -- b.c = get_relative_color(b)
+    return update_ball(b)
 end
 
 function rand_dir()
