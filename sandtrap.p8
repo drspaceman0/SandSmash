@@ -41,10 +41,6 @@ function change_state(new_state)
     end
 end
 
-function restart()
-    change_state(game_states.game)
-end
-
 --particles
 effects = {}
 
@@ -338,20 +334,43 @@ function init_spash()
     balls = {}
     init_player()
     player.y = 300
+    num_running_circles = 0
 end
 
-transition_stop_drawing_splash = false
-max_circles = 0
+circle_distance = 6
+function activate_transition()
+    enable_transition = true
+    transition_completed = false
+    circles = {}
+    for i = MIN_X, MAX_X + 5, circle_distance do
+        for j = MIN_Y, MAX_Y + 5, 5 do
+            local c = cool_colors[min(#cool_colors, max(1, flr(j / 7)))]
+            new_circle(i, j, c, (i + j) / 10)
+        end
+    end
+    num_running_circles = #circles
+end
+
+function update_transition()
+    if not enable_transition then return end
+
+    update_object_table(circles)
+    if num_running_circles <= 0 then
+        printh("#circles <= 0")
+        enable_transition = false
+        transition_completed = true
+    end
+end
+
 function update_splash()
     if btnp(4) and not enable_transition then
-        enable_transition = true
-        for i = MIN_X, MAX_X, 4 do
-            for j = MIN_Y, MAX_Y, 4 do
-                local c = cool_colors[min(#cool_colors, max(1, flr(j / 7)))]
-                new_circle(i, j, c, (i + j) / 10)
-            end
-        end
-        max_circles = #circles
+        activate_transition()
+    end
+
+    update_transition()
+    if transition_completed then
+        printh("CHANGE TO GAME")
+        change_state(game_states.game)
     end
 
     if splash_timer % 4 == 0 then
@@ -365,26 +384,18 @@ function update_splash()
         balls[1].dy = -1
     end
 
-    if enable_transition then
-        update_object_table(circles)
-        if #circles < max_circles and not transition_stop_drawing_splash then
-            transition_stop_drawing_splash = true
-        elseif #circles <= 0 then
-            printh("CHANGE TO GAME")
-            change_state(game_states.game)
-            return
-        end
-    end
-
     update_object_table(balls)
     splash_timer += 1
 end
 
 function new_circle(x, y, c, t)
-    add(circles, { x = x, y = y, r = 0, step = 0.4, c = c, update = update_circle, draw = draw_circle, start_timer = t })
+    add(circles, { x = x, y = y, r = 0, step = 0.4, c = c, update = update_circle, draw = draw_circle, start_timer = t, state = "expand" })
 end
 
 function draw_circle(c)
+    if c.state == "shrink" or c.state == "done" then
+        circfill(c.x - 4, c.y - 4, circle_distance, 0) -- draw black background
+    end
     if c.r > 1 then
         circfill(c.x, c.y, c.r, c.c)
     end
@@ -392,29 +403,37 @@ end
 
 function update_circle(c)
     c.start_timer -= 1
-    if c.start_timer > 0 then return true end
+    if c.start_timer > 0 or c.state == "done" then return true end
     c.r += c.step
-    if c.r >= 4 then
+
+    if c.r >= circle_distance - 1 then
         c.step *= -1
+        c.state = "shrink"
     end
-    return c.r >= 0
+    if c.state == "shrink" and c.r < 1 then
+        -- printh("c.r < 0")
+        c.c = 0
+        -- c.r = 4
+        c.state = "done"
+        num_running_circles -= 1
+    end
+    return true
+    -- return c.r >= 0
 end
 
 blink_text = false
 function draw_splash()
-    if not transition_stop_drawing_splash then
-        draw_bitmap()
-        -- draw_table(balls)
-        local text = "sand-trap"
+    draw_bitmap()
+    -- draw_table(balls)
+    local text = "sand trap"
 
-        write(text, text_x_pos(text), 28, 7)
-        -- text = "trap"
-        -- write(text, text_x_pos(text), 27, 7)
+    write(text, text_x_pos(text), 28, 7)
+    -- text = "trap"
+    -- write(text, text_x_pos(text), 27, 7)
 
-        if t() % 1 == 0 then blink_text = not blink_text end
+    if t() % 1 == 0 then blink_text = not blink_text end
 
-        if blink_text then write("press z", 16, 54, 7) end
-    end
+    if blink_text then write("press z", 16, 54, 7) end
     if enable_transition then
         draw_transition()
     end
@@ -450,7 +469,7 @@ function draw_game()
         if ready_start_timer < 10 then
             text = "go!"
         end
-        write(text, text_x_pos(text), 20, 7)
+        write(text, text_x_pos(text), 28, 7)
     end
 
     -- early_start()
@@ -464,8 +483,14 @@ end
 -- GAME OVER
 
 function update_gameover()
-    if btnp(4) or btnp(5) then
-        restart()
+    if (btnp(4) or btnp(5)) and not enable_transition then
+        activate_transition()
+    end
+
+    update_transition()
+    if transition_completed then
+        printh("CHANGE TO GAME")
+        change_state(game_states.game)
     end
 
     -- player:update() --- dont update player
@@ -484,6 +509,10 @@ function init_gameover()
     printh("NEW STATE: gameover")
     player.y = 400
     score = total_balls
+
+    enable_transition = false
+    transition_completed = false
+    num_running_circles = 0
 end
 
 function draw_gameover()
@@ -492,6 +521,10 @@ function draw_gameover()
     write("game over", text_x_pos("game over"), 20, 7)
     local score_text = "★ " .. score
     write(score_text, text_x_pos(score_text) - 2, 30, 7)
+    if enable_transition then
+        draw_transition()
+        return
+    end
 end
 
 -- Utils
@@ -595,7 +628,7 @@ bm_new_layer_frequency_default = 18
 bm_new_layer_frequency = bm_new_layer_frequency_default
 
 bm_new_layer_frequency_decrease = 0.5
-bm_new_layer_frequency_min = 4
+bm_new_layer_frequency_min = 5
 bm_new_layer_timer = bm_new_layer_frequency
 bm_new_layer_frequency_per_layers = #cool_colors
 
@@ -615,6 +648,7 @@ function update_bitmap()
             return
         end
         add_layer {}
+
         if bm_layer_count % bm_new_layer_frequency_per_layers == 0 then
             bm_new_layer_frequency = max(bm_new_layer_frequency - bm_new_layer_frequency_decrease, bm_new_layer_frequency_min)
         end
