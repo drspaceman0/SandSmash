@@ -343,7 +343,7 @@ end
 transition_stop_drawing_splash = false
 max_circles = 0
 function update_splash()
-    if btnp(5) and not enable_transition then
+    if btnp(4) and not enable_transition then
         enable_transition = true
         for i = MIN_X, MAX_X, 4 do
             for j = MIN_Y, MAX_Y, 4 do
