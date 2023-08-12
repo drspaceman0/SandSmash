@@ -294,7 +294,7 @@ end
 
 draw_debug = false
 function _draw()
-    cls()
+    -- cls()
     if state == game_states.splash then
         draw_splash()
     elseif state == game_states.game then
@@ -1182,16 +1182,13 @@ function update_game()
     end
     update_bitmap()
 
-    if t() * 10 % 10 == 0 then
-        -- do more expensive calculations in here?
-        if #balls == 0 and state == game_states.game and not start_ceiling_drop then
-            new_big_ball()
-            -- loosen_some_sand { amount = 1 }
-        end
+    if #balls == 0 and state == game_states.game and not start_ceiling_drop then
+        new_big_ball()
+        -- loosen_some_sand { amount = 1 }
+    end
 
-        if should_spawn_pickup() then
-            new_pickup {}
-        end
+    if should_spawn_pickup() then
+        new_pickup {}
     end
 
     update_lazer()
