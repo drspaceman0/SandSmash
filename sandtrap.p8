@@ -491,22 +491,45 @@ function update_gameover()
     update_fx()
 end
 
+highscore = -1
+is_highscore = false
 function init_gameover()
     printh("NEW STATE: gameover")
     player.y = 400
-    score = total_balls
+    score = bm_layer_count
+    is_highscore = score > highscore and highscore != -1
+    highscore = max(score, highscore)
 
     enable_transition = false
     transition_completed = false
     num_running_circles = 0
 end
 
+highscore_text_index_timer = 0
 function draw_gameover()
     draw_game()
     -- write(text, text_x_pos(text), 28, 7)
     write("game over", text_x_pos("game over"), 20, 7)
     local score_text = "★ " .. score
-    write(score_text, text_x_pos(score_text) - 2, 30, 7)
+
+    if is_highscore then
+        local x_start = text_x_pos(score_text) - 6
+        local y_start = 30
+        local text_height = 2
+        local text_speed = 30
+        for i = 0, #score_text, 1 do
+            local c = cool_colors[i % #cool_colors]
+            write(
+                sub(score_text, i, i),
+                x_start + i * 4,
+                y_start + sin((highscore_text_index_timer + i) / text_speed) * text_height, c
+            )
+        end
+        highscore_text_index_timer += 1
+    else
+        write(score_text, text_x_pos(score_text) - 2, 30, 7)
+    end
+
     if enable_transition then
         draw_transition()
         return
@@ -645,7 +668,6 @@ function update_bitmap()
             if state == game_states.game then change_state(game_states.gameover) end
         end
     end
-    -- check for game over
 end
 
 function is_game_over()
