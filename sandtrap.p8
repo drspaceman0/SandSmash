@@ -313,6 +313,7 @@ function _draw()
     --     rect(MIN_X, mid_y, MAX_X, mid_y, 11)
     --     rect(MIN_X, mid_y + 1, MAX_X, mid_y + 1, 11)
     -- end
+    -- line(MIN_X, layer_max_height_total, MAX_X, layer_max_height_total, 7)
 end
 
 time_at_init_game = 0
@@ -908,23 +909,25 @@ function update_ball(b)
     end
     if b.y > MAX_Y then return false end
 
-    -- player collision
-    if b:collide(player) then
-        player.collision = true
-        if b.c == player.c then
-            absorb_xp()
+    if b.y + 1 >= player.y then
+        -- player collision
+        if b:collide(player) then
+            player.collision = true
+            if b.c == player.c then
+                absorb_xp()
+            end
+
+            -- b.c = player.c
+
+            -- b.dx = player.dx / 2 + (b.x - player.center_x) / 4.5
+
+            if sticky_mode_activated then
+                add_sticky(flr(b.x) - player.x, b.c)
+                return false
+            end
+
+            calculate_player_reflect(b)
         end
-
-        -- b.c = player.c
-
-        -- b.dx = player.dx / 2 + (b.x - player.center_x) / 4.5
-
-        if sticky_mode_activated then
-            add_sticky(flr(b.x) - player.x, b.c)
-            return false
-        end
-
-        calculate_player_reflect(b)
     end
 
     -- bitmap collision
