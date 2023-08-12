@@ -262,7 +262,7 @@ default_player_speed = 2
 player_speed = default_player_speed
 
 function init_player()
-    player = Entity.create { x = MIN_X + 32, y = player_y, h = 1, w = player_w_min, c = 8, update = update_player, draw = draw_player, speed = player_speed }
+    player = Entity.create { x = MIN_X + 26, y = player_y, h = 1, w = player_w_min, c = 8, update = update_player, draw = draw_player, speed = player_speed }
     player.collision = false
     player.prev_x = x
 end
@@ -292,6 +292,7 @@ function _update()
     end
 end
 
+draw_debug = false
 function _draw()
     cls()
     if state == game_states.splash then
@@ -301,6 +302,17 @@ function _draw()
     elseif state == game_states.gameover then
         draw_gameover()
     end
+    -- if draw_debug then
+    --     local mid_x = flr(MAX_X / 2)
+    --     local mid_y = flr(MAX_Y / 2)
+    --     rect(MIN_X, MIN_Y, MAX_X, MAX_Y, 11)
+    --     line(MIN_X, MIN_Y, MAX_X, MAX_Y, 11)
+    --     line(MAX_X, MIN_Y, MIN_X, MAX_Y, 11)
+    --     line(mid_x, MIN_Y, mid_x, MAX_Y, 11)
+    --     line(mid_x + 1, MIN_Y, mid_x + 1, MAX_Y, 11)
+    --     rect(MIN_X, mid_y, MAX_X, mid_y, 11)
+    --     rect(MIN_X, mid_y + 1, MAX_X, mid_y + 1, 11)
+    -- end
 end
 
 time_at_init_game = 0
@@ -426,13 +438,13 @@ function draw_splash()
     -- draw_table(balls)
     local text = "sand trap"
 
-    write(text, text_x_pos(text), 28, 7)
+    write(text, text_x_pos(text) - 1, 28, 7)
     -- text = "trap"
     -- write(text, text_x_pos(text), 27, 7)
 
     if t() % 1 == 0 then blink_text = not blink_text end
 
-    if blink_text then write("press z", 16, 54, 7) end
+    if blink_text then write("press z", 17, 54, 7) end
     if enable_transition then
         draw_transition()
     end
@@ -602,32 +614,52 @@ function init_bitmap(arg)
         end
     end
 
+    block_x = 10
+    block_y = 10
+    block_w = 7
+    block_h = 4
+    block_y_gap = block_h + 2
+    local purple = { 12, 13, 2 }
+    local red = { 15, 8, 2 }
+    local green = { 6, 11, 3 }
     if arg.include_blocks then
         for i = 0, 4 do
-            bitmap_brick { x = 10 + 8 * i, y = 10, w = 6, h = 3, c1 = 13, c2 = 12 }
+            bitmap_brick { x = block_x + 9 * i, y = block_y, w = block_w, h = block_h, colors = purple }
         end
+
         for i = 0, 4 do
-            bitmap_brick { x = 10 + 8 * i, y = 15, w = 6, h = 3, c1 = 9, c2 = 10 }
+            bitmap_brick { x = block_x + 9 * i, y = block_y + block_y_gap, w = block_w, h = block_h, colors = green }
         end
+
         for i = 0, 4 do
-            bitmap_brick { x = 10 + 8 * i, y = 20, w = 6, h = 3, c1 = 8, c2 = 14 }
+            bitmap_brick { x = block_x + 9 * i, y = block_y + block_y_gap * 2, w = block_w, h = block_h, colors = red }
         end
     end
 end
 
 function bitmap_brick(arg)
-    x, y, w, h, c1, c2 = arg.x, arg.y, arg.w, arg.h, arg.c1, arg.c2
-
+    x, y, w, h, colors = arg.x, arg.y, arg.w, arg.h, arg.colors
+    local c1, c2, c3 = colors[1], colors[2], colors[3]
+    -- top left
     for i = 0, w do
         for j = 0, h do
             bm[x + i][y + j] = c1
         end
     end
 
+    -- middle
     for i = 1, w - 1 do
         for j = 1, h - 1 do
             bm[x + i][y + j] = c2
         end
+    end
+
+    -- middle right
+    for i = 0, w - 1 do
+        bm[x + i][y + h] = c3
+    end
+    for j = 1, h do
+        bm[x + w][y + j] = c3
     end
 end
 
@@ -933,7 +965,7 @@ end
 
 function new_big_ball()
     local b = new_ball {
-        x = 52, y = 40, w = 4, h = 4, dx = -1, dy = 1, c = 7,
+        x = 47, y = 40, w = 4, h = 4, dx = -1, dy = 1, c = 7,
         update = update_big_ball, draw = draw_big_ball
     }
     b.n_pierced = big_ball_pierce_limit
