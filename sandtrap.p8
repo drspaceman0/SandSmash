@@ -36,6 +36,7 @@ function change_state(new_state)
     elseif new_state == game_states.game then
         state = game_states.game
         init_game()
+        cls()
     elseif new_state == game_states.gameover then
         state = game_states.gameover
         init_gameover()
@@ -292,7 +293,6 @@ function _update()
     end
 end
 
-draw_debug = false
 function _draw()
     -- cls()
     if state == game_states.splash then
@@ -302,7 +302,7 @@ function _draw()
     elseif state == game_states.gameover then
         draw_gameover()
     end
-    -- if draw_debug then
+    -- if true then
     --     local mid_x = flr(MAX_X / 2)
     --     local mid_y = flr(MAX_Y / 2)
     --     rect(MIN_X, MIN_Y, MAX_X, MAX_Y, 11)
