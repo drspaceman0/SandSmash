@@ -308,6 +308,7 @@ end
 
 function _draw()
     -- cls()
+    if clear_screen then cls() end
     if state == game_states.splash then
         draw_splash()
     elseif state == game_states.game then
@@ -1092,7 +1093,7 @@ function activate_lazer()
     local rnd_x = rnd(5) - 2
     lazer_x = flr(player.center_x - lazer_w / 2 + rnd_x)
     lazer_range = { lazer_x, lazer_x + lazer_w }
-
+    sfx(1, 2)
     lazer_residue = {}
 end
 
@@ -1121,6 +1122,7 @@ function update_lazer()
             new_ball { x = o.x, y = o.y, w = 1, h = 1, dx = 0, dy = 1, c = o.c }
         end
 
+        sfx(-1, 2)
         activate_ma_lazah = false
         lazer_residue = {}
     end
@@ -1167,7 +1169,10 @@ end
 shake = 0
 shake_amount = 1
 max_shake = 3
+clear_screen = false
 function doshake()
+    if shake <= 0 then return end
+    clear_screen = true
     local shakex = shake_amount - rnd(shake_amount * 2)
     local shakey = shake_amount - rnd(shake_amount * 2)
 
@@ -1177,7 +1182,11 @@ function doshake()
     camera(shakex, shakey)
 
     shake = shake * 0.75
-    if (shake < 0.05) shake = 0
+    if shake < 0.05 then
+        shake = 0
+        camera(0, 0)
+        clear_screen = false
+    end
 end
 
 activate_ma_lazah = false
@@ -1189,9 +1198,9 @@ function update_game()
 
     player:update()
     if btnp(4) then
-        for i = MIN_X, MAX_X do
-            loosen_some_sand { x = i }
-        end
+        -- for i = MIN_X, MAX_X do
+        --     loosen_some_sand { x = i }
+        -- end
         -- loosen_some_sand {}
         -- shake += 1
         -- add_layer {}
@@ -1381,7 +1390,7 @@ e77e00006760000077cc7700cccccccc070000000000000000000000000000000000000000000000
 00000000666660000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 __sfx__
 000300000503006030070300703008030090300a0300b0300c0300c0300d0300e0300e0301003010030110301203013030130301403015030160301703018030190301a0301b0301c0301d0301e0301f0301f030
-00030000021500315005150061500715008150091500a1500b1500c1500e1500f1500f150101501215013150151501615017150181501a1501b1501d1501e1501f15020150221502315024150251502615027150
+000400002822024220222201f2201d2201b2201a2201822016220142201322012220102200f2200e2200d2200c2200b2200b2200a2200a2200922008220082200722007220072200622005220052200522004220
 000300000225003250042500525006250072500725009250092500a2500c2500d2500e2500f2500f25011250122501325015250162501725018250192501a2501a2501b2501d2501e2501f250202502125022250
 00030000023500335003350043500435005350063500735008350093500a3500c3500c3500d3500e35010350103501235012350133501435015350163501635018350193501a3501b3501c3501e3501e3501f350
 00030000014500245002450034500445005450064500645008450094500a4500c4500d4500e450104501145013450154501545016450174501845018450194501a4501b4501b4501c4501c4501d4501e4501e450
