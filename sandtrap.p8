@@ -405,14 +405,14 @@ function update_splash()
         add_layer {}
     end
 
-    if splash_timer > 30 and #balls == 0 then
-        new_big_ball()
-        balls[1].x = flr(rnd(MAX_X) + 8)
-        balls[1].y = 40
-        balls[1].dy = -1
-    end
+    -- if splash_timer > 30 and #balls == 0 then
+    --     new_big_ball()
+    --     balls[1].x = flr(rnd(MAX_X) + 8)
+    --     balls[1].y = 40
+    --     balls[1].dy = -1
+    -- end
 
-    update_object_table(balls)
+    -- update_object_table(balls)
     splash_timer += 1
 end
 
