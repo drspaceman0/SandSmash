@@ -872,7 +872,7 @@ function update_big_ball(b)
             end
         end
     end
-    if bounced then play_sand_note(b) end
+    if bounced then sfx(0, -1, 1, 1) end
 
     return true
     -- b.time -= 1
