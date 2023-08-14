@@ -696,7 +696,7 @@ end
 
 bm_layer_count = 0
 bm_new_layer_color = 11
-bm_new_layer_frequency_default = 18
+bm_new_layer_frequency_default = 14
 -- bm_new_layer_frequency_default = 2
 bm_new_layer_frequency = bm_new_layer_frequency_default
 
