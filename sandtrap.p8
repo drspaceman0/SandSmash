@@ -242,7 +242,8 @@ function update_player(o)
     --     player.prev_x = player.x
     -- end
 
-    o.center_x = o.x + flr(o.w / 2)
+    player.center_x = player.x + flr(player.w / 2)
+    trail(player.center_x, player.y + 1, 1, { player.c }, 1)
     if t() % player_color_change_interval == 0 then
         player.c = bm_new_layer_color
     end
