@@ -856,10 +856,12 @@ function update_big_ball(b)
         play_sand_note(b)
     end
 
+    local bounced = false
     for i = 0, b.w do
         for j = 0, b.h do
             local x, y = flr(b.x) + i, flr(b.y) + j
             if y < MAX_Y and bm[x][y] != 0 then
+                bounced = true
                 new_ball { x = x, y = y, w = 1, h = 1, dx = 0, dy = 1, c = bm[x][y] }
                 bm[x][y] = 0
                 b.n_pierced -= 1
@@ -870,6 +872,7 @@ function update_big_ball(b)
             end
         end
     end
+    if bounced then play_sand_note(b) end
 
     return true
     -- b.time -= 1
