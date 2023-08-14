@@ -293,6 +293,7 @@ function quick_start()
     state = game_states.game
     init_game()
     start_ceiling_drop = true
+    bm_new_layer_frequency = 2
     ready_start_timer = 0
 end
 
@@ -1016,11 +1017,11 @@ default_ball_time = 1200
 default_ball_speed = 1
 ball_speed = default_ball_speed
 balls = {}
-max_balls = 1280
+max_balls = 920
 total_balls = 0
 function new_ball(arg)
     total_balls += 1
-    if #balls >= 1280 then return end
+    if #balls >= max_balls then return end
     -- x, y, w, h, dx, dy, c
     local b = Entity.create {
         x = arg.x, y = arg.y, h = arg.h, w = arg.w,
