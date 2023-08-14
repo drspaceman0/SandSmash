@@ -124,7 +124,7 @@ function trail(x, y, w, c_table, num)
         add_fx(
             x + rnd(w) - w / 2, -- x
             y + rnd(w) - w / 2, -- y
-            40 + rnd(30), -- die
+            2 + rnd(10), -- die
             0, -- dx
             0, -- dy
             false, -- gravity
@@ -483,6 +483,7 @@ function draw_game()
     draw_table(pickups)
 
     draw_fx()
+    draw_table(big_balls)
     if activate_ma_lazah then draw_lazer() end
     doshake()
 
@@ -832,6 +833,18 @@ function absorb_xp()
     -- printh("XP: " .. total_xp)
 end
 
+big_balls = {}
+function new_big_ball()
+    local b = Entity.create {
+        x = 47, y = 40, w = 4, h = 4,
+        dx = -1, dy = 1, time = default_ball_time, c = 7, update = update_big_ball, draw = draw_big_ball,
+        speed = ball_speed
+    }
+    b.n_pierced = big_ball_pierce_limit
+
+    add(big_balls, b)
+end
+
 big_ball_pierce_limit = 4
 function update_big_ball(b)
     b.times_hit_sand = 0
@@ -873,7 +886,7 @@ function update_big_ball(b)
         end
     end
     if bounced then sfx(0, -1, 1, 1) end
-
+    trail(b.x + 2, b.y + 2, 1, { 7 }, 1)
     return true
     -- b.time -= 1
     -- return b.time > 0
@@ -996,14 +1009,6 @@ function calculate_player_reflect(b)
     -- y
     b.dy *= -1
     b.y = player.y - 1
-end
-
-function new_big_ball()
-    local b = new_ball {
-        x = 47, y = 40, w = 4, h = 4, dx = -1, dy = 1, c = 7,
-        update = update_big_ball, draw = draw_big_ball
-    }
-    b.n_pierced = big_ball_pierce_limit
 end
 
 default_ball_time = 1200
@@ -1229,7 +1234,7 @@ function update_game()
     end
     update_bitmap()
 
-    if #balls == 0 and state == game_states.game and not start_ceiling_drop then
+    if #big_balls == 0 and state == game_states.game and not start_ceiling_drop then
         new_big_ball()
         -- loosen_some_sand { amount = 1 }
     end
@@ -1242,6 +1247,7 @@ function update_game()
     update_sticky()
 
     update_object_table(balls)
+    update_object_table(big_balls)
     update_object_table(pickups)
     update_fx()
 
